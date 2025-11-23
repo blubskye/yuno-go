@@ -56,7 +56,19 @@ func NewDatabase(path string) (*Database, error) {
 			interval_hours INTEGER,
 			warning_minutes INTEGER,
 			next_run TEXT,
+			last_clean TEXT,
+			enabled INTEGER DEFAULT 1,
+			warned INTEGER DEFAULT 0,
+			custom_message TEXT DEFAULT '',
+			custom_image TEXT DEFAULT '',
 			PRIMARY KEY (guild_id, channel_id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS ban_images (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			guild_id TEXT,
+			filename TEXT,
+			added_by TEXT,
+			added_at TEXT
 		)`,
 	}
 
