@@ -5,7 +5,7 @@
 [bot]
 token           = "YOUR_DISCORD_BOT_TOKEN_HERE"   # Required
 prefix          = "?"                             # Command prefix (legacy)
-owner_ids       = [123456789012345678]            # Array of owner user IDs
+owner_ids       = ["123456789012345678"]            # Array of owner user IDs
 status          = "for levels ♡"                  # Watching status
 activity_type   = "watching"                      # watching | playing | streaming | listening | competing
 
@@ -42,7 +42,7 @@ max_consecutive_messages = 4                      # In main_* channels → warni
 warning_lifetime      = 15                        # Seconds before warning auto-deletes
 
 [terminal]
-allowed_users = [123456789012345678]              # Who can use ?terminal / ?py
+allowed_users = ["123456789012345678"]              # Who can use ?terminal / ?py
 log_channel   = "123456789012345678"              # Optional: send tracebacks here
 
 [paths]
