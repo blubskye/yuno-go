@@ -9,7 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
-	"github.com/blubskye/yuno-go/internal/bot"
+	"yuno-go/internal/bot"
 )
 
 // Global config will be loaded here
