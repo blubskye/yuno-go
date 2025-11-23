@@ -1,0 +1,61 @@
+# config.toml
+# Yuno Go Edition — Configuration File
+# Place this in the same directory as your binary
+
+[bot]
+token           = "YOUR_DISCORD_BOT_TOKEN_HERE"   # Required
+prefix          = "?"                             # Command prefix (legacy)
+owner_ids       = [123456789012345678]            # Array of owner user IDs
+status          = "for levels ♡"                  # Watching status
+activity_type   = "watching"                      # watching | playing | streaming | listening | competing
+
+[database]
+path            = "Leveling/main.db"              # Relative or absolute path
+backup_interval = "24h"                           # Automatic backup (future feature)
+max_connections = 10
+
+[features]
+leveling_enabled_by_default = true                # New guilds auto-enable leveling
+welcome_enabled_by_default  = true
+spam_filter_enabled         = true
+auto_clean_enabled          = true
+
+[leveling]
+xp_per_message      = [15, 25]                    # [min, max]
+xp_per_minute_voice = [18, 30]
+level_up_channel    = ""                          # Empty = DM user | "here" = join channel | channel ID
+cooldown_seconds    = 3                           # Anti-spam XP cooldown per user
+
+[welcome]
+default_message     = "Welcome {member} to {guild}!"
+default_color       = 16761035                    # #ff003d in decimal
+dm_enabled          = true
+channel_enabled     = true
+embed_image_url     = ""                          # Global default welcome banner
+
+[spam_filter]
+# Channels that trigger special rules
+main_channel_prefix   = "main"                    # Links banned here
+nsfw_channel_prefix   = "nsfw_"                   # Text banned (images/links only)
+allow_invites         = false                     # Instantly ban on invite post
+max_consecutive_messages = 4                      # In main_* channels → warning → ban
+warning_lifetime      = 15                        # Seconds before warning auto-deletes
+
+[terminal]
+allowed_users = [123456789012345678]              # Who can use ?terminal / ?py
+log_channel   = "123456789012345678"              # Optional: send tracebacks here
+
+[paths]
+ban_images_folder     = "assets/ban_images"
+mention_images_folder = "assets/mention_responses"
+logs_folder           = "logs"
+
+[performance]
+goroutine_limit     = 1000                        # Safety cap
+cache_ttl           = "10m"
+rate_limit_burst    = 5
+
+[agpl]
+source_url          = "https://github.com/blubskye/yuno-go"
+repo_name           = "blubskye/yuno-go"
+license             = "GNU AGPL v3"
