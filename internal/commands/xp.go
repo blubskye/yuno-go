@@ -5,8 +5,13 @@ import (
 	"strconv"
 
 	"github.com/bwmarrin/discordgo"
-	"yuno-bot/internal/database"
 )
+
+// DBInterface defines what commands need from the database
+type DBInterface interface {
+	QueryRow(query string, args ...interface{}) interface{ Scan(dest ...interface{}) error }
+	Exec(query string, args ...interface{}) (interface{}, error)
+}
 
 // XPCommand shows XP information
 type XPCommand struct{}
@@ -34,21 +39,25 @@ func (c *XPCommand) Execute(ctx *Context) error {
 		return nil
 	}
 
-	// Get bot instance
-	bot := ctx.Bot.(interface {
-		GetDB() *database.Database
-	})
-	db := bot.GetDB()
+	// Get database from bot
+	db := ctx.Bot.(interface{ GetDB() DBInterface }).GetDB()
 
-	// Get XP data
-	xpData, err := db.GetXPData(ctx.Message.GuildID, targetUser.ID)
+	// Query XP data directly from database
+	var xp, level int
+	err := db.QueryRow(`
+		SELECT exp, level FROM glevel 
+		WHERE guild_id = ? AND user_id = ?`,
+		ctx.Message.GuildID, targetUser.ID).Scan(&xp, &level)
+	
 	if err != nil {
-		return err
+		// User not found - they have 0 XP
+		xp = 0
+		level = 0
 	}
 
 	// Calculate XP needed for next level
-	neededXP := 5*xpData.Level*xpData.Level + 50*xpData.Level + 100
-	remaining := neededXP - xpData.XP
+	neededXP := 5*level*level + 50*level + 100
+	remaining := neededXP - xp
 
 	// Get avatar URL
 	avatarURL := targetUser.AvatarURL("256")
@@ -63,16 +72,16 @@ func (c *XPCommand) Execute(ctx *Context) error {
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "Current level",
-				Value:  fmt.Sprintf("%d", xpData.Level),
+				Value:  fmt.Sprintf("%d", level),
 				Inline: true,
 			},
 			{
 				Name:   "Current exp",
-				Value:  fmt.Sprintf("%d", xpData.XP),
+				Value:  fmt.Sprintf("%d", xp),
 				Inline: true,
 			},
 			{
-				Name:   fmt.Sprintf("Exp needed until next level (%d)", xpData.Level+1),
+				Name:   fmt.Sprintf("Exp needed until next level (%d)", level+1),
 				Value:  fmt.Sprintf("%d", remaining),
 				Inline: false,
 			},
@@ -121,25 +130,19 @@ func (c *SetLevelCommand) Execute(ctx *Context) error {
 		return nil
 	}
 
-	// Get bot instance
-	bot := ctx.Bot.(interface {
-		GetDB() *database.Database
-	})
-	db := bot.GetDB()
+	// Get database from bot
+	db := ctx.Bot.(interface{ GetDB() DBInterface }).GetDB()
 
 	// Set level with 0 XP
-	err = db.SetXPData(ctx.Message.GuildID, targetUser.ID, 0, level)
+	_, err = db.Exec(`INSERT OR REPLACE INTO glevel (guild_id, user_id, exp, level, enabled) 
+		VALUES (?, ?, 0, ?, 'enabled')`,
+		ctx.Message.GuildID, targetUser.ID, level)
+	
 	if err != nil {
 		return err
 	}
 
-	// Get updated data
-	xpData, err := db.GetXPData(ctx.Message.GuildID, targetUser.ID)
-	if err != nil {
-		return err
-	}
-
-	neededXP := 5*xpData.Level*xpData.Level + 50*xpData.Level + 100
+	neededXP := 5*level*level + 50*level + 100
 
 	// Create response embed
 	embed := &discordgo.MessageEmbed{
@@ -152,17 +155,17 @@ func (c *SetLevelCommand) Execute(ctx *Context) error {
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "Current level",
-				Value:  fmt.Sprintf("%d", xpData.Level),
+				Value:  fmt.Sprintf("%d", level),
 				Inline: true,
 			},
 			{
 				Name:   "Current exp",
-				Value:  fmt.Sprintf("%d", xpData.XP),
+				Value:  "0",
 				Inline: true,
 			},
 			{
-				Name:   fmt.Sprintf("Exp needed until next level (%d)", xpData.Level+1),
-				Value:  fmt.Sprintf("%d", neededXP-xpData.XP),
+				Name:   fmt.Sprintf("Exp needed until next level (%d)", level+1),
+				Value:  fmt.Sprintf("%d", neededXP),
 				Inline: false,
 			},
 		},
