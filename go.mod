@@ -1,5 +1,24 @@
-go mod init github.com/yourname/yuno-go
-go get github.com/bwmarrin/discordgo
-go get modernc.org/sqlite
-go get github.com/BurntSushi/toml
-go get github.com/joho/godotenv
+module yuno-go
+
+go 1.24.10
+
+require (
+	github.com/BurntSushi/toml v1.5.0
+	github.com/bwmarrin/discordgo v0.29.0
+	modernc.org/sqlite v1.40.1
+)
+
+require (
+	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/ncruces/go-strftime v0.1.9 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
+	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
+	golang.org/x/sys v0.36.0 // indirect
+	modernc.org/libc v1.66.10 // indirect
+	modernc.org/mathutil v1.7.1 // indirect
+	modernc.org/memory v1.11.0 // indirect
+)
