@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -12,8 +13,29 @@ import (
 	"yuno-go/internal/bot"
 )
 
+// displayStartupBanner shows the ASCII art banner
+func displayStartupBanner() {
+	// Read ASCII art from file
+	artBytes, err := os.ReadFile("ascii.txt")
+	if err != nil {
+		// Fallback if file doesn't exist
+		fmt.Println("\n╔══════════════════════════════════════╗")
+		fmt.Println("║             YUNO BOT GO              ║")
+		fmt.Println("╚══════════════════════════════════════╝\n")
+		return
+	}
+
+	// Display "YUNO" header
+	fmt.Println()
+	fmt.Println(string(artBytes))
+	fmt.Println()
+}
+
 // Global config will be loaded here
 func main() {
+	// Display startup banner
+	displayStartupBanner()
+
 	// 1. Load configuration (creates default config.toml if missing)
 	bot.LoadConfig("config.toml")
 

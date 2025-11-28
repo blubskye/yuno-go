@@ -3,6 +3,7 @@ package bot
 import (
 	"log"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	_ "modernc.org/sqlite"
@@ -10,10 +11,11 @@ import (
 )
 
 type Bot struct {
-	Session       *discordgo.Session
-	DB            *Database
-	Commands      *commands.Manager
-	CleanWorker   *AutoCleanWorker
+	Session         *discordgo.Session
+	DB              *Database
+	Commands        *commands.Manager
+	CleanWorker     *AutoCleanWorker
+	PresenceBatcher *PresenceBatcher
 }
 
 func New() (*Bot, error) {
@@ -53,6 +55,9 @@ func New() (*Bot, error) {
 	// Initialize auto-clean worker
 	b.CleanWorker = NewAutoCleanWorker(b)
 
+	// Initialize presence batcher
+	b.PresenceBatcher = NewPresenceBatcher(b)
+
 	// Register all commands
 	b.registerCommands()
 
@@ -61,10 +66,18 @@ func New() (*Bot, error) {
 	dg.AddHandler(b.onVoiceStateUpdate)
 	dg.AddHandler(b.onMemberJoin)
 
+	// Logging handlers
+	dg.AddHandler(b.onMessageDelete)
+	dg.AddHandler(b.onMessageUpdate)
+	dg.AddHandler(b.onVoiceStateUpdateLogging)
+	dg.AddHandler(b.onGuildMemberUpdate)
+	dg.AddHandler(b.onPresenceUpdate)
+
 	// All intents we need
 	dg.Identify.Intents = discordgo.IntentsAllWithoutPrivileged |
 		discordgo.IntentsGuildMembers |
-		discordgo.IntentsMessageContent
+		discordgo.IntentsMessageContent |
+		discordgo.IntentsGuildPresences
 
 	return b, nil
 }
@@ -78,6 +91,15 @@ func (b *Bot) registerCommands() {
 	// Leveling commands
 	b.Commands.Register(&commands.XPCommand{})
 	b.Commands.Register(&commands.SetLevelCommand{})
+	b.Commands.Register(&commands.SyncLevelsCommand{})
+	b.Commands.Register(&commands.PreviewLevelsCommand{})
+	
+	// Rank role management
+	b.Commands.Register(&commands.SyncRanksCommand{})
+	b.Commands.Register(&commands.AddRankCommand{})
+	b.Commands.Register(&commands.RemoveRankCommand{})
+	b.Commands.Register(&commands.ListRanksCommand{})
+	b.Commands.Register(&commands.ApplyRanksCommand{})
 	
 	// Moderation commands
 	b.Commands.Register(&commands.BanCommand{})
@@ -96,17 +118,31 @@ func (b *Bot) registerCommands() {
 	b.Commands.Register(&commands.AddBanImageCommand{})
 	b.Commands.Register(&commands.DelBanImageCommand{})
 
+	// Logging commands
+	b.Commands.Register(&commands.SetLogChannelCommand{})
+	b.Commands.Register(&commands.ToggleLoggingCommand{})
+	b.Commands.Register(&commands.ConfigureLogTypeCommand{})
+	b.Commands.Register(&commands.SetPresenceBatchCommand{})
+	b.Commands.Register(&commands.DisableChannelLoggingCommand{})
+	b.Commands.Register(&commands.EnableChannelLoggingCommand{})
+	b.Commands.Register(&commands.LogStatusCommand{})
+
 	log.Printf("Registered %d commands", len(b.Commands.GetAll()))
 }
 
 func (b *Bot) Start() error {
 	// Start auto-clean worker
 	b.CleanWorker.Start()
+
+	// Start presence batcher
+	b.PresenceBatcher.Start()
+
 	return b.Session.Open()
 }
 
 func (b *Bot) Stop() {
 	b.CleanWorker.Stop()
+	b.PresenceBatcher.Stop()
 	b.Session.Close()
 	b.DB.Close()
 }
@@ -118,7 +154,7 @@ func (b *Bot) GetDB() *Database {
 
 func (b *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
 	log.Printf("→ Logged in as %s | Serving %d guilds", s.State.User.String(), len(r.Guilds))
-	
+
 	// Use UpdateStatusComplex instead of deprecated UpdateWatchingStatus
 	activityType := discordgo.ActivityTypeWatching
 	status := Global.Bot.Status
@@ -133,9 +169,24 @@ func (b *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
 		}},
 		Status: "online",
 	})
-	
+
 	if err != nil {
 		log.Printf("Warning: Could not set status: %v", err)
+	}
+
+	// Start daily cleanup task for message cache
+	go b.dailyCleanupTask()
+}
+
+func (b *Bot) dailyCleanupTask() {
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
+	// Run once immediately
+	b.CleanOldMessageCache()
+
+	for range ticker.C {
+		b.CleanOldMessageCache()
 	}
 }
 
@@ -165,6 +216,9 @@ func (b *Bot) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) 
 		}
 		return
 	}
+
+	// Cache message for logging
+	b.CacheMessage(m.Message)
 
 	// Give XP if not a command
 	b.giveXPAsync(s, m)

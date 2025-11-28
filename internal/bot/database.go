@@ -70,6 +70,39 @@ func NewDatabase(path string) (*Database, error) {
 			added_by TEXT,
 			added_at TEXT
 		)`,
+		`CREATE TABLE IF NOT EXISTS logging_config (
+			guild_id TEXT PRIMARY KEY,
+			log_channel_id TEXT,
+			message_delete INTEGER DEFAULT 1,
+			message_edit INTEGER DEFAULT 1,
+			member_join_voice INTEGER DEFAULT 1,
+			member_leave_voice INTEGER DEFAULT 1,
+			nickname_change INTEGER DEFAULT 1,
+			avatar_change INTEGER DEFAULT 1,
+			presence_change INTEGER DEFAULT 1,
+			presence_batch_seconds INTEGER DEFAULT 120,
+			enabled INTEGER DEFAULT 1
+		)`,
+		`CREATE TABLE IF NOT EXISTS logging_channel_overrides (
+			guild_id TEXT,
+			channel_id TEXT,
+			message_delete INTEGER DEFAULT 1,
+			message_edit INTEGER DEFAULT 1,
+			member_join_voice INTEGER DEFAULT 1,
+			member_leave_voice INTEGER DEFAULT 1,
+			nickname_change INTEGER DEFAULT 1,
+			avatar_change INTEGER DEFAULT 1,
+			presence_change INTEGER DEFAULT 1,
+			PRIMARY KEY (guild_id, channel_id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS message_cache (
+			message_id TEXT PRIMARY KEY,
+			guild_id TEXT,
+			channel_id TEXT,
+			author_id TEXT,
+			content TEXT,
+			created_at TEXT
+		)`,
 	}
 
 	for _, q := range queries {
