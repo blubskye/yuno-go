@@ -103,6 +103,39 @@ func NewDatabase(path string) (*Database, error) {
 			content TEXT,
 			created_at TEXT
 		)`,
+		`CREATE TABLE IF NOT EXISTS regex_filters (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			guild_id TEXT NOT NULL,
+			pattern TEXT NOT NULL,
+			action TEXT NOT NULL,
+			reason TEXT,
+			enabled INTEGER DEFAULT 1,
+			created_by TEXT,
+			created_at TEXT,
+			UNIQUE(guild_id, pattern)
+		)`,
+		`CREATE TABLE IF NOT EXISTS channel_regex_filters (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			guild_id TEXT NOT NULL,
+			channel_id TEXT NOT NULL,
+			pattern TEXT NOT NULL,
+			action TEXT NOT NULL,
+			reason TEXT,
+			enabled INTEGER DEFAULT 1,
+			created_by TEXT,
+			created_at TEXT,
+			UNIQUE(guild_id, channel_id, pattern)
+		)`,
+		`CREATE TABLE IF NOT EXISTS spam_violations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			guild_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			violation_type TEXT NOT NULL,
+			reason TEXT,
+			timestamp TEXT,
+			moderator_id TEXT,
+			action_taken TEXT
+		)`,
 	}
 
 	for _, q := range queries {

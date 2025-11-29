@@ -42,6 +42,18 @@ allow_invites         = false                     # Instantly ban on invite post
 max_consecutive_messages = 4                      # In main_* channels → warning → ban
 warning_lifetime      = 15                        # Seconds before warning auto-deletes
 
+# Auto-ban settings
+auto_ban_on_unauthorized_commands = true          # Ban users who try mod commands without perms
+auto_ban_on_hierarchy_violation  = true           # Ban if trying to mod someone higher ranked
+allow_same_role_moderation       = false          # Allow mods to ban users at same role level
+auto_ban_on_everyone_mention     = true           # Ban on @everyone usage
+auto_ban_on_here_mention         = true           # Ban on @here usage
+exempt_roles_from_mention_ban    = []             # Role IDs exempt from mention bans (e.g., admin roles)
+
+# Note: Custom regex filters are managed per-guild via commands
+# Use ?addfilter, ?removefilter, ?listfilters to manage them
+# Use ?addchannelfilter for channel-specific regex rules
+
 [terminal]
 allowed_users = ["YOUR_USER_ID_HERE"]             # Who can use ?terminal / ?py
 log_channel   = ""                                # Optional: send tracebacks here (channel ID)

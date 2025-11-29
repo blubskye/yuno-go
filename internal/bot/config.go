@@ -58,11 +58,17 @@ type WelcomeConfig struct {
 }
 
 type SpamFilterConfig struct {
-	MainChannelPrefix     string `toml:"main_channel_prefix"`
-	NSFWChannelPrefix     string `toml:"nsfw_channel_prefix"`
-	AllowInvites          bool   `toml:"allow_invites"`
-	MaxConsecutiveMessages int   `toml:"max_consecutive_messages"`
-	WarningLifetime       int    `toml:"warning_lifetime"`
+	MainChannelPrefix                string   `toml:"main_channel_prefix"`
+	NSFWChannelPrefix                string   `toml:"nsfw_channel_prefix"`
+	AllowInvites                     bool     `toml:"allow_invites"`
+	MaxConsecutiveMessages           int      `toml:"max_consecutive_messages"`
+	WarningLifetime                  int      `toml:"warning_lifetime"`
+	AutoBanOnUnauthorizedCommands    bool     `toml:"auto_ban_on_unauthorized_commands"`
+	AutoBanOnHierarchyViolation      bool     `toml:"auto_ban_on_hierarchy_violation"`
+	AllowSameRoleModeration          bool     `toml:"allow_same_role_moderation"`
+	AutoBanOnEveryoneMention         bool     `toml:"auto_ban_on_everyone_mention"`
+	AutoBanOnHereMention             bool     `toml:"auto_ban_on_here_mention"`
+	ExemptRolesFromMentionBan        []string `toml:"exempt_roles_from_mention_ban"`
 }
 
 type TerminalConfig struct {

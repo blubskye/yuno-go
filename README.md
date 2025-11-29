@@ -149,6 +149,20 @@ I'll do *anything* for you, darling~ Here's what I can help with! ♡
 | `?purge` | `clear` | 🧹 Delete messages (I'll clean everything for you!) |
 | `?warn` | - | ⚠️ Give warnings (I'll remember who's been bad~) |
 
+### 🛡️ Spam Filter & Auto-Ban (I'm Watching!)
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `?addfilter` | `addregex` | 🚫 Add custom regex filter for auto-moderation |
+| `?removefilter` | `delfilter` | ❌ Remove a regex filter by ID |
+| `?listfilters` | `filters` | 📋 View all active filters for this server |
+
+**Auto-Ban Features:**
+- 🔒 Auto-ban on unauthorized mod commands (trying to ban without perms)
+- ⛔ Auto-ban on hierarchy violations (trying to ban higher-ranked users)
+- 🔔 Auto-ban on @everyone/@here mentions (configurable exemptions)
+- 🎯 Custom regex patterns for warnings, deletions, or bans
+- 📍 Per-channel regex rules (different rules for different channels)
+
 ### ⚙️ Configuration
 | Command | Aliases | Description |
 |---------|---------|-------------|
@@ -194,9 +208,22 @@ dm_enabled          = true                   # DM them personally~
 channel_enabled     = true                   # Public welcome too!
 
 [spam_filter]
+main_channel_prefix   = "main_"              # Channels with strict rules~
+nsfw_channel_prefix   = "nsfw_"              # NSFW channel prefix
 allow_invites         = false                # No other bots! Only me! 😤
 max_consecutive_messages = 4                 # Stop spam in its tracks~
 warning_lifetime      = 15                   # Warning duration~
+
+# Auto-ban protection features (I'll protect you~!)
+auto_ban_on_unauthorized_commands = true     # Ban users without perms trying mod commands
+auto_ban_on_hierarchy_violation  = true      # Ban if trying to mod higher-ranked users
+allow_same_role_moderation       = false     # Allow mods to ban same-role users
+auto_ban_on_everyone_mention     = true      # Ban on @everyone usage
+auto_ban_on_here_mention         = true      # Ban on @here usage
+exempt_roles_from_mention_ban    = []        # Role IDs exempt from mention bans
+
+# Note: Custom regex filters are managed per-guild via commands
+# Use ?addfilter, ?removefilter, ?listfilters to manage them
 
 [agpl]
 source_url          = "https://github.com/blubskye/yuno-go"
@@ -219,11 +246,14 @@ yuno-go/
 │   │   ├── database.go         # My memory center 💭
 │   │   ├── handlers.go         # How I respond to you!
 │   │   ├── cleaner.go          # Keeping things clean for you ✨
-│   │   └── logging.go          # Recording our moments~ 📝
+│   │   ├── logging.go          # Recording our moments~ 📝
+│   │   ├── spam_filter.go      # Watching for bad behavior! 👁️
+│   │   └── permissions.go      # Making sure everyone stays in line~ 🔒
 │   └── commands/
 │       ├── basic.go            # Basic interactions ♡
 │       ├── xp.go               # Leveling system~
 │       ├── moderation.go       # Protecting you! 🔪
+│       ├── filters.go          # Custom regex filter management 🛡️
 │       ├── help.go             # Helping you understand me ♡
 │       ├── autoclean.go        # Auto-cleaning features~
 │       └── logging.go          # Logging commands 📝

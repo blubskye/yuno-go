@@ -17,6 +17,8 @@ type Bot struct {
 	Commands        *commands.Manager
 	CleanWorker     *AutoCleanWorker
 	PresenceBatcher *PresenceBatcher
+	SpamFilter      *SpamFilter
+	PermChecker     *PermissionChecker
 }
 
 // RecoverFromPanic recovers from panics and logs stack trace if enabled
@@ -77,6 +79,14 @@ func New() (*Bot, error) {
 	// Initialize presence batcher
 	b.PresenceBatcher = NewPresenceBatcher(b)
 
+	// Initialize spam filter
+	b.SpamFilter = NewSpamFilter(b)
+	DebugLog("Spam filter initialized")
+
+	// Initialize permission checker
+	b.PermChecker = NewPermissionChecker(dg)
+	DebugLog("Permission checker initialized")
+
 	// Register all commands
 	DebugLog("Registering commands...")
 	b.registerCommands()
@@ -126,7 +136,12 @@ func (b *Bot) registerCommands() {
 	// Moderation commands
 	b.Commands.Register(&commands.BanCommand{})
 	b.Commands.Register(&commands.KickCommand{})
-	
+
+	// Spam filter commands
+	b.Commands.Register(&commands.AddFilterCommand{})
+	b.Commands.Register(&commands.RemoveFilterCommand{})
+	b.Commands.Register(&commands.ListFiltersCommand{})
+
 	// Owner commands
 	b.Commands.Register(&commands.ShutdownCommand{})
 	
@@ -172,6 +187,14 @@ func (b *Bot) Stop() {
 // GetDB returns the underlying sql.DB for commands to use
 func (b *Bot) GetDB() *Database {
 	return b.DB
+}
+
+func (b *Bot) GetSpamFilter() *SpamFilter {
+	return b.SpamFilter
+}
+
+func (b *Bot) GetPermChecker() *PermissionChecker {
+	return b.PermChecker
 }
 
 func (b *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
@@ -238,10 +261,43 @@ func (b *Bot) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) 
 		prefix = "?"
 	}
 
+	// Check spam filter first (before commands)
+	if filterResult := b.SpamFilter.CheckMessage(m); filterResult != nil {
+		DebugLog("Message triggered spam filter: %s", filterResult.Reason)
+		b.SpamFilter.ExecuteAction(s, m, filterResult)
+		return
+	}
+
 	if strings.HasPrefix(m.Content, prefix) {
 		// Handle command
 		content := strings.TrimPrefix(m.Content, prefix)
 		DebugLog("Command received: %s from %s", content, m.Author.Username)
+
+		// Check for moderation command authorization
+		cmdParts := strings.Fields(content)
+		if len(cmdParts) > 0 {
+			cmdName := strings.ToLower(cmdParts[0])
+			if cmdName == "ban" || cmdName == "kick" {
+				// Get first target ID
+				var targetID string
+				if len(m.Mentions) > 0 {
+					targetID = m.Mentions[0].ID
+				}
+
+				// Check authorization
+				shouldBan, reason := b.SpamFilter.CheckCommandAuthorization(
+					m.GuildID,
+					m.Author.ID,
+					targetID,
+					cmdName,
+				)
+				if shouldBan {
+					DebugLog("Auto-banning %s for unauthorized command: %s", m.Author.ID, reason)
+					b.PermChecker.AutoBanViolator(m.GuildID, m.Author.ID, reason)
+					return
+				}
+			}
+		}
 
 		ctx := &commands.Context{
 			Session: s,
