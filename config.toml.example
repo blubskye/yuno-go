@@ -56,6 +56,15 @@ goroutine_limit     = 1000                        # Safety cap
 cache_ttl           = "10m"
 rate_limit_burst    = 5
 
+[debug]
+enabled             = false                       # Enable debug mode (verbose logging)
+verbose_logging     = false                       # Extra detailed logs
+full_stack_trace    = false                       # Full stack traces on panics
+log_to_file         = false                       # Write debug logs to file
+log_file_path       = "logs/debug.log"            # Path for debug log file
+print_raw_events    = false                       # Print raw Discord events
+print_stack_on_panic = true                       # Always print stack on panic
+
 [agpl]
 source_url          = "https://github.com/blubskye/yuno-go"
 repo_name           = "blubskye/yuno-go"

@@ -2,6 +2,7 @@ package bot
 
 import (
 	"log"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -18,13 +19,29 @@ type Bot struct {
 	PresenceBatcher *PresenceBatcher
 }
 
+// RecoverFromPanic recovers from panics and logs stack trace if enabled
+func RecoverFromPanic(context string) {
+	if r := recover(); r != nil {
+		log.Printf("⚠️  PANIC in %s: %v", context, r)
+
+		if Global.Debug.PrintStackOnPanic || Global.Debug.FullStackTrace {
+			log.Printf("Stack trace:\n%s", debug.Stack())
+		}
+	}
+}
+
 func New() (*Bot, error) {
+	defer RecoverFromPanic("Bot.New")
+
+	DebugLog("Initializing bot...")
+
 	// Get token from config (already loaded by main.go)
 	token := Global.Bot.Token
 	if token == "" {
 		log.Fatal("Bot token not set in config")
 	}
 
+	DebugLog("Creating Discord session...")
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
 		return nil, err
@@ -36,10 +53,12 @@ func New() (*Bot, error) {
 		dbPath = "Leveling/main.db"
 	}
 
+	DebugLog("Opening database at: %s", dbPath)
 	db, err := NewDatabase(dbPath)
 	if err != nil {
 		return nil, err
 	}
+	DebugLog("Database initialized successfully")
 
 	b := &Bot{
 		Session:  dg,
@@ -59,8 +78,10 @@ func New() (*Bot, error) {
 	b.PresenceBatcher = NewPresenceBatcher(b)
 
 	// Register all commands
+	DebugLog("Registering commands...")
 	b.registerCommands()
 
+	DebugLog("Adding event handlers...")
 	dg.AddHandler(b.onReady)
 	dg.AddHandler(b.onMessageCreate)
 	dg.AddHandler(b.onVoiceStateUpdate)
@@ -79,6 +100,7 @@ func New() (*Bot, error) {
 		discordgo.IntentsMessageContent |
 		discordgo.IntentsGuildPresences
 
+	DebugLog("Bot initialization complete")
 	return b, nil
 }
 
@@ -153,7 +175,14 @@ func (b *Bot) GetDB() *Database {
 }
 
 func (b *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
+	defer RecoverFromPanic("onReady")
+
 	log.Printf("→ Logged in as %s | Serving %d guilds", s.State.User.String(), len(r.Guilds))
+	DebugLog("Ready event received with %d guilds", len(r.Guilds))
+
+	if Global.Debug.PrintRawEvents {
+		log.Printf("[RAW EVENT] Ready: User=%s, SessionID=%s", r.User.String(), r.SessionID)
+	}
 
 	// Use UpdateStatusComplex instead of deprecated UpdateWatchingStatus
 	activityType := discordgo.ActivityTypeWatching
@@ -192,8 +221,15 @@ func (b *Bot) dailyCleanupTask() {
 
 // onMessageCreate now handles commands
 func (b *Bot) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	defer RecoverFromPanic("onMessageCreate")
+
 	if m.Author.Bot || m.GuildID == "" {
 		return
+	}
+
+	if Global.Debug.PrintRawEvents {
+		log.Printf("[RAW EVENT] Message: Author=%s, Guild=%s, Content=%s",
+			m.Author.Username, m.GuildID, m.Content)
 	}
 
 	// Check if message starts with prefix
@@ -205,6 +241,8 @@ func (b *Bot) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) 
 	if strings.HasPrefix(m.Content, prefix) {
 		// Handle command
 		content := strings.TrimPrefix(m.Content, prefix)
+		DebugLog("Command received: %s from %s", content, m.Author.Username)
+
 		ctx := &commands.Context{
 			Session: s,
 			Message: m,
@@ -213,6 +251,9 @@ func (b *Bot) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) 
 
 		if err := b.Commands.Execute(ctx, content); err != nil {
 			log.Printf("Command error: %v", err)
+			if Global.Debug.VerboseLogging {
+				log.Printf("Command execution failed for '%s': %v", content, err)
+			}
 		}
 		return
 	}

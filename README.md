@@ -86,6 +86,41 @@ go build -ldflags="-s -w" -o yuno
 
 ---
 
+## 🐛 Debug & Advanced Features 🐛
+
+I've got special tools to help you troubleshoot and debug~ ♡
+
+### Command-Line Flags
+```bash
+# Run with debug mode (verbose logging)
+./yuno -debug
+
+# Run with full stack traces on panics
+./yuno -trace
+
+# Use a custom config file
+./yuno -config /path/to/config.toml
+
+# Combine multiple flags!
+./yuno -debug -trace -config myconfig.toml
+```
+
+### Debug Configuration (in config.toml)
+```toml
+[debug]
+enabled             = true          # Enable debug mode
+verbose_logging     = true          # Extra detailed logs
+full_stack_trace    = true          # Full stack traces on panics
+log_to_file         = false         # Write logs to file
+log_file_path       = "logs/debug.log"
+print_raw_events    = false         # Print raw Discord events
+print_stack_on_panic = true         # Always show stack on panic
+```
+
+**Pro tip:** Command-line flags override config settings! 💡
+
+---
+
 ## 🎀 Commands (What Can I Do For You?) 🎀
 
 I'll do *anything* for you, darling~ Here's what I can help with! ♡

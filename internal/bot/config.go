@@ -17,6 +17,7 @@ type Config struct {
 	Terminal    TerminalConfig
 	Paths       PathsConfig
 	Performance PerformanceConfig
+	Debug       DebugConfig
 	AGPL        AGPLConfig
 }
 
@@ -81,6 +82,16 @@ type PerformanceConfig struct {
 	RateLimitBurst  int    `toml:"rate_limit_burst"`
 }
 
+type DebugConfig struct {
+	Enabled          bool   `toml:"enabled"`
+	VerboseLogging   bool   `toml:"verbose_logging"`
+	FullStackTrace   bool   `toml:"full_stack_trace"`
+	LogToFile        bool   `toml:"log_to_file"`
+	LogFilePath      string `toml:"log_file_path"`
+	PrintRawEvents   bool   `toml:"print_raw_events"`
+	PrintStackOnPanic bool  `toml:"print_stack_on_panic"`
+}
+
 type AGPLConfig struct {
 	SourceURL string `toml:"source_url"`
 	RepoName  string `toml:"repo_name"`
@@ -88,6 +99,24 @@ type AGPLConfig struct {
 }
 
 var Global Config
+var debugMode bool
+
+// SetDebugMode enables or disables debug mode
+func SetDebugMode(enabled bool) {
+	debugMode = enabled
+}
+
+// IsDebugMode returns whether debug mode is enabled
+func IsDebugMode() bool {
+	return debugMode || Global.Debug.Enabled
+}
+
+// DebugLog logs a message only if debug mode is enabled
+func DebugLog(format string, args ...interface{}) {
+	if IsDebugMode() {
+		log.Printf("[DEBUG] "+format, args...)
+	}
+}
 
 func LoadConfig(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {

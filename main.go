@@ -1,10 +1,12 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -31,13 +33,56 @@ func displayStartupBanner() {
 	fmt.Println()
 }
 
+// Command-line flags
+var (
+	debugFlag   = flag.Bool("debug", false, "Enable debug mode with verbose logging")
+	traceFlag   = flag.Bool("trace", false, "Enable full stack traces on panics")
+	configPath  = flag.String("config", "config.toml", "Path to configuration file")
+)
+
 // Global config will be loaded here
 func main() {
+	// Parse command-line flags
+	flag.Parse()
+
 	// Display startup banner
 	displayStartupBanner()
 
+	// Set up stack tracing if requested
+	if *traceFlag {
+		debug.SetTraceback("all")
+		log.Println("🔍 Full stack tracing ENABLED")
+	}
+
+	// Set debug mode
+	if *debugFlag {
+		bot.SetDebugMode(true)
+		log.Println("🐛 Debug mode ENABLED - Verbose logging active")
+	}
+
 	// 1. Load configuration (creates default config.toml if missing)
-	bot.LoadConfig("config.toml")
+	bot.LoadConfig(*configPath)
+
+	// Override debug settings from command-line if provided
+	if *debugFlag {
+		bot.Global.Debug.Enabled = true
+		bot.Global.Debug.VerboseLogging = true
+	}
+	if *traceFlag {
+		bot.Global.Debug.FullStackTrace = true
+	}
+
+	// Apply debug settings from config
+	if bot.Global.Debug.Enabled {
+		bot.SetDebugMode(true)
+		if !*debugFlag {
+			log.Println("🐛 Debug mode ENABLED from config")
+		}
+	}
+	if bot.Global.Debug.FullStackTrace && !*traceFlag {
+		debug.SetTraceback("all")
+		log.Println("🔍 Full stack tracing ENABLED from config")
+	}
 
 	// 2. Create the bot instance
 	yuno, err := bot.New()
