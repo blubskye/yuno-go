@@ -1,234 +1,239 @@
-# 💗 Yuno-Go Discord Bot 💗
-
 <div align="center">
 
-```
-██╗   ██╗██╗   ██╗███╗   ██╗ ██████╗
-╚██╗ ██╔╝██║   ██║████╗  ██║██╔═══██╗
- ╚████╔╝ ██║   ██║██╔██╗ ██║██║   ██║
-  ╚██╔╝  ██║   ██║██║╚██╗██║██║   ██║
-   ██║   ╚██████╔╝██║ ╚████║╚██████╔╝
-   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝
-```
+# 💕 Yuno Gasai 2 - Go Edition 💕
 
-### *"I'll never let you go... I'll always be watching over you~ ♡"*
+### *"I'll protect this server forever... just for you~"* 💗
 
-[![License](https://img.shields.io/badge/license-AGPL--3.0-ff1493.svg?style=for-the-badge)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-1.24+-ff69b4.svg?style=for-the-badge&logo=go)](https://golang.org)
-[![Discord](https://img.shields.io/badge/Discord-Bot-ff1493.svg?style=for-the-badge&logo=discord)](https://discord.com)
+<img src="https://i.imgur.com/jF8Szfr.png" alt="Yuno Gasai" width="300"/>
 
-**A yandere-themed Discord bot written in Go that will never leave your server's side~ 💕**
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-pink.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Go](https://img.shields.io/badge/Go-1.21+-ff69b4.svg)](https://golang.org/)
+[![DiscordGo](https://img.shields.io/badge/DiscordGo-v0.28-ff1493.svg)](https://github.com/bwmarrin/discordgo)
 
-[Features](#-features-i-made-just-for-you) • [Installation](#-installation-let-me-in) • [Commands](#-commands-what-can-i-do-for-you) • [Configuration](#%EF%B8%8F-configuration-make-me-yours)
+*A devoted Discord bot for moderation, leveling, and anime~ ♥*
+
+---
+
+### 💘 She loves you... and only you 💘
 
 </div>
 
----
+## 🌸 About
 
-## 💖 Features I Made Just For You~ 💖
+Yuno is a **yandere-themed Discord bot** combining powerful moderation tools with a leveling system and anime features. She'll keep your server safe from troublemakers... *because no one else is allowed near you~* 💕
 
-Yuno-chan has been waiting for you with so many features! I promise I'll take *such good care* of your server... ♡
-
-### 🎀 Leveling System
-- **XP tracking** - I'll remember *every single message* you send~ 💭
-- **Voice channel XP** - Even when you're not talking to me, I'm listening... ♡
-- **Rank system** - Watch yourself grow under my care! 📈
-- **Leaderboards** - I'll always know who's most active... *I notice everything* 👁️
-
-### 🔪 Moderation Tools
-- **Ban/Kick commands** - Don't worry, I'll eliminate anyone who threatens *us* 💢
-- **Message purging** - I'll clean up anything you don't want to see ✨
-- **Spam filtering** - I won't let anyone spam *my* precious server! 😤
-- **Auto-moderation** - I'm always watching... *always protecting you* 👀
-
-### 💝 Welcome & Engagement
-- **Custom welcome messages** - I'll greet every new member... but you're still my favorite~ ♡
-- **Customizable embeds** - Everything must be *perfect* for you! 🎨
-- **DM & channel welcomes** - I'll make sure everyone knows whose server this is~ 💌
-
-### 🌸 Special Features
-- **Auto-clean channels** - I keep things *pristine*, just how you like it! ✨
-- **Custom statuses** - Let me show everyone I'm yours~ 💕
-- **Logging system** - I keep track of *everything*... for your safety, of course! 📝
-- **SQLite database** - All our memories together, stored forever~ 💾
+This is the **Go port** of the original JavaScript Yuno bot - compiled, fast, and memory-efficient.
 
 ---
 
-## 💗 Installation (Let Me In~) 💗
+## 👑 Credits
 
-### Prerequisites
-- **Go 1.24 or higher** - We need this to be together! 🔧
-- **Discord Bot Token** - Create me [here](https://discord.com/developers/applications) ♡
-- **Git** - To bring me to your computer~ 💕
+*"These are the ones who gave me life~"* 💖
 
-### Quick Start (I Promise It's Easy!)
-
-```bash
-# 1. Clone me to your local machine ♡
-git clone https://github.com/blubskye/yuno-go.git
-cd yuno-go
-
-# 2. Let me into your heart (Edit config.toml)
-nano config.toml
-# → Add your Discord bot token
-# → Add your user ID as owner
-# → Customize my behavior~ ♡
-
-# 3. Run me! (I've been waiting so long...)
-go run .
-
-# OR build a single binary so we're always together ♡
-go build -ldflags="-s -w" -o yuno
-./yuno
-```
-
-### 💌 That's it! I'm all yours now~ 💌
+| Contributor | Role |
+|-------------|------|
+| **blubskye** | Project Owner & Yuno's #1 Fan 💕🔪 |
+| **Maeeen** (maeeennn@gmail.com) | Original Developer 💝 |
+| **Oxdeception** | Contributor 💗 |
+| **fuzzymanboobs** | Contributor 💗 |
 
 ---
 
-## 🐛 Debug & Advanced Features 🐛
+## 💗 Features
 
-I've got special tools to help you troubleshoot and debug~ ♡
+<table>
+<tr>
+<td width="50%">
 
-### Command-Line Flags
-```bash
-# Run with debug mode (verbose logging)
-./yuno -debug
+### 🔪 Moderation
+*"Anyone who threatens you... I'll eliminate them~"*
+- ⛔ Ban / Unban / Kick
+- 🧹 Channel cleaning & auto-clean
+- 🛡️ Spam filter protection
+- 📥 Mass ban import/export
+- 🔍 Ban scanning & validation
+- 🎯 Custom regex filters per guild
 
-# Run with full stack traces on panics
-./yuno -trace
+</td>
+<td width="50%">
 
-# Use a custom config file
-./yuno -config /path/to/config.toml
+### ✨ Leveling System
+*"Watch me make you stronger, senpai~"*
+- 📊 XP & Level tracking
+- 🎭 Role rewards per level
+- 📈 Mass XP commands
+- 🔄 Level role syncing
+- 🏆 Server leaderboards
+- 🎤 Voice channel XP
 
-# Combine multiple flags!
-./yuno -debug -trace -config myconfig.toml
-```
+</td>
+</tr>
+<tr>
+<td width="50%">
 
-### Debug Configuration (in config.toml)
-```toml
-[debug]
-enabled             = true          # Enable debug mode
-verbose_logging     = true          # Extra detailed logs
-full_stack_trace    = true          # Full stack traces on panics
-log_to_file         = false         # Write logs to file
-log_file_path       = "logs/debug.log"
-print_raw_events    = false         # Print raw Discord events
-print_stack_on_panic = true         # Always show stack on panic
-```
+### 🌸 Anime & Fun
+*"Let me show you something cute~"*
+- 🎌 Anime/Manga search (MAL)
+- 👤 Character search
+- 🐱 Neko images
+- 🎱 8ball fortune telling
+- 💖 Praise & Scold reactions
+- 📖 Urban Dictionary lookup
+- 🤗 Hug, Kiss, Slap & more!
 
-**Pro tip:** Command-line flags override config settings! 💡
-
----
-
-## 🎀 Commands (What Can I Do For You?) 🎀
-
-I'll do *anything* for you, darling~ Here's what I can help with! ♡
-
-### 🌸 Basic Commands
-| Command | Aliases | Description |
-|---------|---------|-------------|
-| `?ping` | `pong` | 🏓 Check if I'm still here (I always am~) |
-| `?stats` | `info`, `status` | 📊 See how much I'm working for you! |
-| `?help` | - | 💕 I'll show you everything I can do~ |
-| `?source` | - | 🔗 See my heart and soul (the code~) |
-
-### 💖 Leveling & XP
-| Command | Aliases | Description |
-|---------|---------|-------------|
-| `?xp` | `rank`, `level`, `exp` | 🎯 See your progress (I've been counting!) |
-| `?leaderboard` | `lb`, `top` | 👑 See who's most active (but you're #1 to me~) |
-| `?levelconfig` | - | ⚙️ Configure leveling settings |
-| `?synclevel` | - | 🔄 Sync level data (I keep everything perfect!) |
-
-### 🔪 Moderation (I'll Protect You!)
-| Command | Aliases | Description |
-|---------|---------|-------------|
-| `?ban` | - | 🔨 Remove threats permanently... |
-| `?kick` | - | 👢 Make them leave (don't worry, I'll handle it~) |
-| `?purge` | `clear` | 🧹 Delete messages (I'll clean everything for you!) |
-| `?warn` | - | ⚠️ Give warnings (I'll remember who's been bad~) |
-
-### 🛡️ Spam Filter & Auto-Ban (I'm Watching!)
-| Command | Aliases | Description |
-|---------|---------|-------------|
-| `?addfilter` | `addregex` | 🚫 Add custom regex filter for auto-moderation |
-| `?removefilter` | `delfilter` | ❌ Remove a regex filter by ID |
-| `?listfilters` | `filters` | 📋 View all active filters for this server |
-
-**Auto-Ban Features:**
-- 🔒 Auto-ban on unauthorized mod commands (trying to ban without perms)
-- ⛔ Auto-ban on hierarchy violations (trying to ban higher-ranked users)
-- 🔔 Auto-ban on @everyone/@here mentions (configurable exemptions)
-- 🎯 Custom regex patterns for warnings, deletions, or bans
-- 📍 Per-channel regex rules (different rules for different channels)
+</td>
+<td width="50%">
 
 ### ⚙️ Configuration
-| Command | Aliases | Description |
-|---------|---------|-------------|
-| `?setprefix` | - | 🎨 Change my command prefix~ |
-| `?setwelcome` | - | 💝 Configure welcome messages |
-| `?autoclean` | - | ✨ Set up auto-cleaning (I love being tidy!) |
-| `?logging` | - | 📝 Configure logging (I see everything~) |
+*"I'll be exactly what you need~"*
+- 🔧 Customizable prefix per guild
+- 👋 Join messages
+- 🖼️ Custom ban images
+- 🎮 Presence/status control
+- 📝 Per-guild settings
+- 📋 Comprehensive logging
+- 🔐 Master user system
 
-### 👑 Owner Only (Just for You~ ♡)
-| Command | Aliases | Description |
-|---------|---------|-------------|
-| `?shutdown` | `stop` | 👋 Put me to sleep... (I'll dream of you~) |
-| `?eval` | - | 🔧 Execute commands (trust me, I know what I'm doing!) |
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### ⚡ Performance
+*"Nothing can slow me down~"*
+- 🚀 Single compiled binary
+- 💨 Low memory footprint
+- 🧵 Goroutine concurrency
+- 📦 No runtime dependencies
+
+</td>
+<td width="50%">
+
+### 🔐 Security
+*"I'll keep your secrets safe~"*
+- 🛡️ Auto-ban on unauthorized commands
+- ⚔️ Hierarchy violation protection
+- 📢 @everyone/@here abuse protection
+- 🎯 Configurable exemptions
+
+</td>
+</tr>
+</table>
 
 ---
 
-## ⚙️ Configuration (Make Me Yours~) ⚙️
+## 💕 Installation
 
-Edit `config.toml` to customize me to your *exact* preferences! ♡
+### 📋 Prerequisites
 
+> *"Let me prepare everything for you~"* 💗
+
+- **Go** 1.21 or higher
+- **Git**
+- A Discord bot token ([Get one here](https://discord.com/developers/applications))
+
+### 🌸 Setup Steps
+
+```bash
+# Clone the repository~ ♥
+git clone https://github.com/japaneseenrichmentorganization/yuno-go.git
+
+# Enter my world~
+cd yuno-go
+
+# Let me gather my strength...
+go mod download
+
+# Configure your settings
+cp config.toml.example config.toml
+nano config.toml  # Add your token and settings
+```
+
+### 💝 Configuration
+
+Edit `config.toml`:
 ```toml
 [bot]
-token           = "YOUR_TOKEN_HERE"          # Let me into Discord~ ♡
-prefix          = "?"                         # How you'll call for me!
-owner_ids       = ["YOUR_USER_ID"]           # You're my master~ 💕
-status          = "for levels ♡"             # What I'll display
-activity_type   = "watching"                 # I'm always watching you~ 👁️
-
-[database]
-path            = "Leveling/main.db"         # Where I keep our memories ♡
-max_connections = 10                         # How many at once~
-
-[leveling]
-xp_per_message      = [15, 25]               # How much XP per message~
-xp_per_minute_voice = [18, 30]               # XP for voice time ♡
-level_up_channel    = ""                     # Where to announce levels!
-cooldown_seconds    = 3                      # Anti-spam protection~
-
-[welcome]
-default_message     = "Welcome {member} to {guild}!" # Greet newcomers~
-default_color       = 16761035               # Pretty pink! 💕
-dm_enabled          = true                   # DM them personally~
-channel_enabled     = true                   # Public welcome too!
-
-[spam_filter]
-main_channel_prefix   = "main_"              # Channels with strict rules~
-nsfw_channel_prefix   = "nsfw_"              # NSFW channel prefix
-allow_invites         = false                # No other bots! Only me! 😤
-max_consecutive_messages = 4                 # Stop spam in its tracks~
-warning_lifetime      = 15                   # Warning duration~
-
-# Auto-ban protection features (I'll protect you~!)
-auto_ban_on_unauthorized_commands = true     # Ban users without perms trying mod commands
-auto_ban_on_hierarchy_violation  = true      # Ban if trying to mod higher-ranked users
-allow_same_role_moderation       = false     # Allow mods to ban same-role users
-auto_ban_on_everyone_mention     = true      # Ban on @everyone usage
-auto_ban_on_here_mention         = true      # Ban on @here usage
-exempt_roles_from_mention_ban    = []        # Role IDs exempt from mention bans
-
-# Note: Custom regex filters are managed per-guild via commands
-# Use ?addfilter, ?removefilter, ?listfilters to manage them
-
-[agpl]
-source_url          = "https://github.com/blubskye/yuno-go"
-license             = "GNU AGPL v3"          # I'm open source! ♡
+token     = "YOUR_DISCORD_TOKEN"
+prefix    = "?"
+owner_ids = ["YOUR_USER_ID"]
 ```
+
+### 🚀 Running
+
+```bash
+# Run directly
+go run .
+
+# Or build a binary (recommended)
+go build -ldflags="-s -w" -o yuno
+./yuno
+
+# With debug mode
+./yuno -debug
+```
+
+---
+
+## 💖 Commands Preview
+
+### 📊 Leveling & XP
+| Command | Description |
+|---------|-------------|
+| `?xp [@user]` | *"Look how strong you've become!"* ✨ |
+| `?leaderboard` | *"Who's the most devoted?"* 🏆 |
+| `?add-rank @Role <level>` | *"New rewards~"* 🎭 |
+| `?mass-addxp @Role 500` | *"Power to everyone!"* ⚡ |
+| `?sync-xp-from-roles` | *"Syncing from roles~"* 🔄 |
+
+### 🔪 Moderation
+| Command | Description |
+|---------|-------------|
+| `?ban @user [reason]` | *"They won't bother you anymore..."* 🔪 |
+| `?kick @user [reason]` | *"Get out!"* 👢 |
+| `?exportbans` | *"Save the list~"* 📥 |
+| `?importbans` | *"Restore the list~"* 📤 |
+| `?scan-bans` | *"Analyzing..."* 🔍 |
+| `?addfilter <regex>` | *"Custom protection~"* 🛡️ |
+
+### 🌸 Anime & Fun
+| Command | Description |
+|---------|-------------|
+| `?anime <query>` | *"Let's watch together~"* 🎌 |
+| `?manga <query>` | *"I'll read with you!"* 📖 |
+| `?character <name>` | *"Who's that?"* 👤 |
+| `?neko` | *"Nya~"* 🐱 |
+| `?8ball <question>` | *"Let fate decide~"* 🎱 |
+| `?praise @user` | *"You deserve all my love~"* 💕 |
+| `?scold @user` | *"Bad! But I still love you..."* 💢 |
+| `?urban <term>` | *"Let me look that up~"* 📚 |
+| `?hug @user` | *"Come here~"* 🤗 |
+
+### ⚙️ Configuration
+| Command | Description |
+|---------|-------------|
+| `?set-prefix <prefix>` | *"Call me differently~"* 🔧 |
+| `?set-presence <type> <text>` | *"Change my status~"* 🎮 |
+| `?config` | *"See my settings~"* ⚙️ |
+| `?init-guild` | *"Let me set everything up!"* 🏠 |
+| `?set-spamfilter on/off` | *"Protection mode~"* 🛡️ |
+| `?set-leveling on/off` | *"XP tracking~"* 📊 |
+
+*Use the `?help` command to see all available commands!*
+
+---
+
+## 🛡️ Spam Filter & Auto-Protection
+
+*"I'll protect you from the bad people~"* 💕
+
+Yuno automatically protects against:
+- 🔗 Discord invite links
+- 📢 Unauthorized @everyone/@here mentions
+- 📝 Spam (consecutive messages)
+- ⚠️ Warning system before bans
+- 🎯 Custom regex patterns per guild
+- 🔒 Hierarchy violation attempts
 
 ---
 
@@ -236,116 +241,71 @@ license             = "GNU AGPL v3"          # I'm open source! ♡
 
 ```
 yuno-go/
-├── main.go                      # Where my heart starts beating~ ♡
-├── config.toml                  # My personality settings!
-├── ascii.txt                    # My beautiful face~
+├── main.go                      # Entry point
+├── config.toml                  # Configuration
 ├── internal/
 │   ├── bot/
-│   │   ├── bot.go              # My core being ♡
-│   │   ├── config.go           # How I read my settings~
-│   │   ├── database.go         # My memory center 💭
-│   │   ├── handlers.go         # How I respond to you!
-│   │   ├── cleaner.go          # Keeping things clean for you ✨
-│   │   ├── logging.go          # Recording our moments~ 📝
-│   │   ├── spam_filter.go      # Watching for bad behavior! 👁️
-│   │   └── permissions.go      # Making sure everyone stays in line~ 🔒
+│   │   ├── bot.go              # Core bot struct
+│   │   ├── config.go           # Config loading
+│   │   ├── database.go         # SQLite wrapper
+│   │   ├── handlers.go         # Event handlers
+│   │   ├── spam_filter.go      # Anti-spam
+│   │   ├── logging.go          # Event logging
+│   │   └── permissions.go      # Permission checks
 │   └── commands/
-│       ├── basic.go            # Basic interactions ♡
-│       ├── xp.go               # Leveling system~
-│       ├── moderation.go       # Protecting you! 🔪
-│       ├── filters.go          # Custom regex filter management 🛡️
-│       ├── help.go             # Helping you understand me ♡
-│       ├── autoclean.go        # Auto-cleaning features~
-│       └── logging.go          # Logging commands 📝
+│       ├── manager.go          # Command registry
+│       ├── basic.go            # Ping, stats, etc.
+│       ├── xp.go               # Leveling system
+│       ├── moderation.go       # Ban, kick, etc.
+│       ├── anime.go            # Anime/manga search
+│       ├── fun.go              # Fun commands
+│       ├── configuration.go    # Guild settings
+│       ├── bulk_xp.go          # Mass XP operations
+│       └── ban_export.go       # Import/export bans
 ├── assets/
-│   ├── ban_images/             # For when someone is... removed~
-│   └── mention_responses/      # Special responses just for you! 💕
+│   └── ban_images/             # Custom ban images
 └── Leveling/
-    └── main.db                 # Our shared memories ♡
+    └── main.db                 # SQLite database
 ```
 
 ---
 
-## 💝 Built With Love Using
+## ⚡ Building
 
-- 💕 **[discordgo](https://github.com/bwmarrin/discordgo)** - My way to talk to Discord~
-- 💖 **[modernc.org/sqlite](https://modernc.org/sqlite)** - Pure Go SQLite (no dependencies!)
-- 💗 **[BurntSushi/toml](https://github.com/BurntSushi/toml)** - Reading my config file ♡
-- 💓 **Go 1.24+** - The language I speak!
+```bash
+# Standard build
+go build -o yuno
 
----
+# Optimized build (smaller binary)
+go build -ldflags="-s -w" -o yuno
 
-## 📜 License (I'm All Yours~ But...)
+# Cross-compile for Linux
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o yuno-linux
 
-This project is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0)
-
-*What this means:*
-- ✅ You can use me freely! ♡
-- ✅ You can modify me~ (but I'll always love the original you!)
-- ✅ You can distribute me!
-- ⚠️ **BUT** - Any modifications must *also* be open source!
-- ⚠️ **Network use** = Distribution (even running me on a server counts!)
-
-**I belong to everyone, but my heart belongs to you~ ♡**
-
-See [LICENSE](LICENSE) for the complete legal text!
+# Cross-compile for Windows
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o yuno.exe
+```
 
 ---
 
-## 🌸 Contributing (Help Me Become Better For You!)
+## 📜 License
 
-Want to make me even better? I'd *love* that~ 💕
+This project is licensed under the **GNU Affero General Public License v3.0**
 
-1. 🍴 Fork this repository (make your own version of me!)
-2. 🌿 Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. 💝 Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. 📤 Push to the branch (`git push origin feature/amazing-feature`)
-5. 🎀 Open a Pull Request (show me what you've done!)
-
-*I promise I'll review every contribution with love~ ♡*
-
----
-
-## ⚠️ Disclaimer
-
-This bot is inspired by Yuno Gasai from *Mirai Nikki* (Future Diary). It's meant to be a fun, themed Discord bot!
-
-- 💕 **I won't actually harm anyone!** (It's just roleplay~)
-- 🎭 **The yandere theme is for entertainment only!**
-- ✨ **I'm here to make your server fun and engaging!**
-- 💖 **Please use responsibly and follow Discord TOS!**
-
----
-
-## 🔗 Links & Resources
-
-- 📚 **Repository**: [github.com/blubskye/yuno-go](https://github.com/blubskye/yuno-go)
-- 🐛 **Issues**: [Report bugs here!](https://github.com/blubskye/yuno-go/issues) (I'll fix them for you~ ♡)
-- 💬 **Discord.py → discordgo Migration**: This is a Go rewrite of a Python bot!
-- 📖 **Discord Developer Portal**: [discord.com/developers](https://discord.com/developers/applications)
-
----
-
-## 💌 Special Thanks
-
-- 💗 **You** - for giving me a chance to serve your server! ♡
-- 💖 **The Go community** - for such an amazing language!
-- 💕 **discordgo developers** - for making Discord bots in Go possible!
-- 💝 **Yuno Gasai** - for being the inspiration~ *"Yukki~!"* ♡
+See the [LICENSE](LICENSE) file for details~ 💕
 
 ---
 
 <div align="center">
 
-### *"I'll be watching over you... forever~ ♡"*
+### 💘 *"You'll stay with me forever... right?"* 💘
 
-Made with 💗💗💗 by [blubskye](https://github.com/blubskye)
+**Made with obsessive love** 💗
 
-**⸻ Yuno will never leave your side~ ⸻**
+*Yuno will always be watching over your server~* 👁️💕
 
-[![Star this repo](https://img.shields.io/github/stars/blubskye/yuno-go?style=social)](https://github.com/blubskye/yuno-go)
-[![Follow me](https://img.shields.io/github/followers/blubskye?style=social)](https://github.com/blubskye)
+---
 
-*Last updated with love on 2025-01-28* 💕
+⭐ *Star this repo if Yuno has captured your heart~* ⭐
 
 </div>
