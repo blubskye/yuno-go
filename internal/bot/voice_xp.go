@@ -154,8 +154,8 @@ func (v *VoiceXPTracker) HandleVoiceStateUpdate(s *discordgo.Session, vs *discor
 	guildID := vs.GuildID
 	userID := vs.UserID
 
-	// Check if voice XP is enabled for this guild
-	enabled, _, _, _, err := v.bot.DB.GetVoiceXPConfig(guildID)
+	// Check if voice XP is enabled for this guild (use cached config)
+	enabled, _, _, _, err := v.bot.GetVoiceXPConfigCached(guildID)
 	if err != nil || !enabled {
 		return
 	}
@@ -204,8 +204,8 @@ func (v *VoiceXPTracker) processXP() {
 	now := time.Now()
 
 	for guildID, guildSessions := range v.sessions {
-		// Get guild config
-		enabled, xpRate, intervalSec, ignoreAFK, err := v.bot.DB.GetVoiceXPConfig(guildID)
+		// Get guild config (use cached)
+		enabled, xpRate, intervalSec, ignoreAFK, err := v.bot.GetVoiceXPConfigCached(guildID)
 		if err != nil || !enabled {
 			continue
 		}
@@ -232,8 +232,12 @@ func (v *VoiceXPTracker) processXP() {
 				continue
 			}
 
-			// Grant XP
-			go v.bot.giveXP(v.bot.Session, guildID, userID, "", xpRate)
+			// Grant XP using batcher (no channel for voice XP level-ups)
+			if v.bot.XPBatcher != nil {
+				v.bot.XPBatcher.AddXP(guildID, userID, "", xpRate)
+			} else {
+				go v.bot.giveXP(v.bot.Session, guildID, userID, "", xpRate)
+			}
 			session.LastXP = now
 
 			DebugLog("[Voice XP] Granted %d XP to %s in guild %s", xpRate, userID, guildID)

@@ -14,7 +14,8 @@ func (b *Bot) onMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) 
 		return
 	}
 
-	config, err := b.GetLoggingConfig(m.GuildID)
+	// Use cached config for high-frequency events
+	config, err := b.GetLoggingConfigCached(m.GuildID)
 	if err != nil || !config.Enabled || !config.MessageDelete || config.LogChannelID == "" {
 		return
 	}
@@ -90,7 +91,8 @@ func (b *Bot) onMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) 
 		return
 	}
 
-	config, err := b.GetLoggingConfig(m.GuildID)
+	// Use cached config for high-frequency events
+	config, err := b.GetLoggingConfigCached(m.GuildID)
 	if err != nil || !config.Enabled || !config.MessageEdit || config.LogChannelID == "" {
 		return
 	}
@@ -169,106 +171,62 @@ func (b *Bot) onMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) 
 	b.CacheMessage(m.Message)
 }
 
-// onVoiceStateUpdate handles voice channel join/leave logging
+// onVoiceStateUpdateLogging handles voice channel join/leave logging (batched)
 func (b *Bot) onVoiceStateUpdateLogging(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	if v.GuildID == "" {
 		return
 	}
 
-	config, err := b.GetLoggingConfig(v.GuildID)
+	// Use cached config for high-frequency events
+	config, err := b.GetLoggingConfigCached(v.GuildID)
 	if err != nil || !config.Enabled || config.LogChannelID == "" {
 		return
 	}
 
-	// Determine if user joined or left
-	var logType string
-	var title string
-	var color int
-	var channelID string
-
+	// Determine if user joined or left and add to batch
 	if v.BeforeUpdate != nil {
 		// User was in a voice channel before
 		if v.ChannelID == "" {
 			// User left voice channel
-			logType = "member_leave_voice"
-			title = "Member Left Voice Channel"
-			color = 0xe74c3c // Red
-			channelID = v.BeforeUpdate.ChannelID
+			if config.MemberLeaveVoice {
+				b.addVoiceEventToBatch(v.GuildID, v.UserID, v.BeforeUpdate.ChannelID, "voice_leave")
+			}
 		} else if v.BeforeUpdate.ChannelID != v.ChannelID {
 			// User switched voice channels - log both
-			b.logVoiceEvent(s, config, v, "member_leave_voice", "Member Left Voice Channel", 0xe74c3c, v.BeforeUpdate.ChannelID)
-			logType = "member_join_voice"
-			title = "Member Joined Voice Channel"
-			color = 0x2ecc71 // Green
-			channelID = v.ChannelID
-		} else {
-			// Just a state update (mute/deafen), don't log
-			return
+			if config.MemberLeaveVoice {
+				b.addVoiceEventToBatch(v.GuildID, v.UserID, v.BeforeUpdate.ChannelID, "voice_leave")
+			}
+			if config.MemberJoinVoice {
+				b.addVoiceEventToBatch(v.GuildID, v.UserID, v.ChannelID, "voice_join")
+			}
 		}
+		// Just a state update (mute/deafen), don't log
 	} else {
 		// User joined voice channel
-		logType = "member_join_voice"
-		title = "Member Joined Voice Channel"
-		color = 0x2ecc71 // Green
-		channelID = v.ChannelID
+		if config.MemberJoinVoice {
+			b.addVoiceEventToBatch(v.GuildID, v.UserID, v.ChannelID, "voice_join")
+		}
 	}
-
-	b.logVoiceEvent(s, config, v, logType, title, color, channelID)
 }
 
-// logVoiceEvent is a helper function to log voice events
-func (b *Bot) logVoiceEvent(s *discordgo.Session, config *LoggingConfig, v *discordgo.VoiceStateUpdate, logType, title string, color int, channelID string) {
-	// Check if this type is enabled
-	enabled := false
-	switch logType {
-	case "member_join_voice":
-		enabled = config.MemberJoinVoice
-	case "member_leave_voice":
-		enabled = config.MemberLeaveVoice
-	}
-
-	if !enabled {
+// addVoiceEventToBatch adds a voice event to the event log batcher
+func (b *Bot) addVoiceEventToBatch(guildID, userID, channelID, eventType string) {
+	if b.EventLogBatcher == nil {
 		return
 	}
 
-	// Check channel override (voice channel)
-	if channelID != "" {
-		overrideEnabled, _ := b.IsChannelLoggingEnabled(v.GuildID, channelID, logType)
-		if !overrideEnabled {
-			return
-		}
-	}
-
-	embed := &discordgo.MessageEmbed{
-		Title: title,
-		Color: color,
-		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:   "Member",
-				Value:  fmt.Sprintf("<@%s>", v.UserID),
-				Inline: true,
-			},
-		},
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-
-	if channelID != "" {
-		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name:   "Channel",
-			Value:  fmt.Sprintf("<#%s>", channelID),
-			Inline: true,
-		})
-	}
-
-	_, err := s.ChannelMessageSendEmbed(config.LogChannelID, embed)
-	if err != nil {
-		log.Printf("Failed to log voice state update: %v", err)
-	}
+	b.EventLogBatcher.AddEvent(guildID, LogEvent{
+		Type:      eventType,
+		UserID:    userID,
+		ChannelID: channelID,
+		Timestamp: time.Now(),
+	})
 }
 
-// onGuildMemberUpdate handles nickname and avatar changes
+// onGuildMemberUpdate handles nickname and avatar changes (batched)
 func (b *Bot) onGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
-	config, err := b.GetLoggingConfig(m.GuildID)
+	// Use cached config for high-frequency events
+	config, err := b.GetLoggingConfigCached(m.GuildID)
 	if err != nil || !config.Enabled || config.LogChannelID == "" {
 		return
 	}
@@ -278,41 +236,15 @@ func (b *Bot) onGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMember
 		oldNick := m.BeforeUpdate.Nick
 		newNick := m.Nick
 
-		if oldNick != newNick {
-			embed := &discordgo.MessageEmbed{
-				Title: "Nickname Changed",
-				Color: 0x9b59b6, // Purple
-				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:   "Member",
-						Value:  fmt.Sprintf("<@%s>", m.User.ID),
-						Inline: true,
-					},
-					{
-						Name:   "Before",
-						Value:  oldNick,
-						Inline: true,
-					},
-					{
-						Name:   "After",
-						Value:  newNick,
-						Inline: true,
-					},
-				},
-				Timestamp: time.Now().Format(time.RFC3339),
-			}
-
-			if oldNick == "" {
-				embed.Fields[1].Value = m.User.Username
-			}
-			if newNick == "" {
-				embed.Fields[2].Value = m.User.Username
-			}
-
-			_, err = s.ChannelMessageSendEmbed(config.LogChannelID, embed)
-			if err != nil {
-				log.Printf("Failed to log nickname change: %v", err)
-			}
+		if oldNick != newNick && b.EventLogBatcher != nil {
+			b.EventLogBatcher.AddEvent(m.GuildID, LogEvent{
+				Type:      "nickname",
+				UserID:    m.User.ID,
+				Username:  m.User.Username,
+				OldValue:  oldNick,
+				NewValue:  newNick,
+				Timestamp: time.Now(),
+			})
 		}
 	}
 
@@ -321,43 +253,24 @@ func (b *Bot) onGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMember
 		oldAvatar := m.BeforeUpdate.Avatar
 		newAvatar := m.User.Avatar
 
-		if oldAvatar != newAvatar {
-			embed := &discordgo.MessageEmbed{
-				Title: "Avatar Changed",
-				Color: 0x1abc9c, // Turquoise
-				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:   "Member",
-						Value:  fmt.Sprintf("<@%s>", m.User.ID),
-						Inline: true,
-					},
-				},
-				Timestamp: time.Now().Format(time.RFC3339),
-			}
-
-			if oldAvatar != "" {
-				embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-					Name:   "Old Avatar",
-					Value:  fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.png", m.User.ID, oldAvatar),
-					Inline: false,
-				})
-			}
-
+		if oldAvatar != newAvatar && b.EventLogBatcher != nil {
+			extra := make(map[string]string)
 			if newAvatar != "" {
-				embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-					Name:   "New Avatar",
-					Value:  fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.png", m.User.ID, newAvatar),
-					Inline: false,
-				})
-				embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
-					URL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.png", m.User.ID, newAvatar),
-				}
+				extra["new_avatar_url"] = fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.png", m.User.ID, newAvatar)
+			}
+			if oldAvatar != "" {
+				extra["old_avatar_url"] = fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.png", m.User.ID, oldAvatar)
 			}
 
-			_, err = s.ChannelMessageSendEmbed(config.LogChannelID, embed)
-			if err != nil {
-				log.Printf("Failed to log avatar change: %v", err)
-			}
+			b.EventLogBatcher.AddEvent(m.GuildID, LogEvent{
+				Type:      "avatar",
+				UserID:    m.User.ID,
+				Username:  m.User.Username,
+				OldValue:  oldAvatar,
+				NewValue:  newAvatar,
+				Timestamp: time.Now(),
+				Extra:     extra,
+			})
 		}
 	}
 }
@@ -368,7 +281,8 @@ func (b *Bot) onPresenceUpdate(s *discordgo.Session, p *discordgo.PresenceUpdate
 		return
 	}
 
-	config, err := b.GetLoggingConfig(p.GuildID)
+	// Use cached config for very high-frequency events
+	config, err := b.GetLoggingConfigCached(p.GuildID)
 	if err != nil || !config.Enabled || !config.PresenceChange || config.LogChannelID == "" {
 		return
 	}

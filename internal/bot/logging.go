@@ -26,6 +26,434 @@ type LoggingConfig struct {
 	Enabled              bool
 }
 
+// ============================================================================
+// CONFIG CACHE - In-memory caching for logging configs to reduce DB reads
+// ============================================================================
+
+type ConfigCache struct {
+	configs map[string]*cachedConfig
+	mu      sync.RWMutex
+	ttl     time.Duration
+}
+
+type cachedConfig struct {
+	config    *LoggingConfig
+	expiresAt time.Time
+}
+
+func NewConfigCache(ttl time.Duration) *ConfigCache {
+	return &ConfigCache{
+		configs: make(map[string]*cachedConfig),
+		ttl:     ttl,
+	}
+}
+
+func (cc *ConfigCache) Get(guildID string) (*LoggingConfig, bool) {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+
+	cached, exists := cc.configs[guildID]
+	if !exists || time.Now().After(cached.expiresAt) {
+		return nil, false
+	}
+	return cached.config, true
+}
+
+func (cc *ConfigCache) Set(guildID string, config *LoggingConfig) {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+
+	cc.configs[guildID] = &cachedConfig{
+		config:    config,
+		expiresAt: time.Now().Add(cc.ttl),
+	}
+}
+
+func (cc *ConfigCache) Invalidate(guildID string) {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+	delete(cc.configs, guildID)
+}
+
+func (cc *ConfigCache) Clear() {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+	cc.configs = make(map[string]*cachedConfig)
+}
+
+// ============================================================================
+// MESSAGE CACHE BATCHER - Batches message cache writes to reduce DB transactions
+// ============================================================================
+
+type MessageCacheBatcher struct {
+	bot           *Bot
+	messages      []cachedMessage
+	mu            sync.Mutex
+	stopChan      chan struct{}
+	maxBatchSize  int
+	flushInterval time.Duration
+}
+
+type cachedMessage struct {
+	ID        string
+	GuildID   string
+	ChannelID string
+	AuthorID  string
+	Content   string
+	CreatedAt string
+}
+
+func NewMessageCacheBatcher(bot *Bot) *MessageCacheBatcher {
+	return &MessageCacheBatcher{
+		bot:           bot,
+		messages:      make([]cachedMessage, 0, 100),
+		stopChan:      make(chan struct{}),
+		maxBatchSize:  100,
+		flushInterval: 5 * time.Second,
+	}
+}
+
+func (mcb *MessageCacheBatcher) Start() {
+	go mcb.run()
+}
+
+func (mcb *MessageCacheBatcher) Stop() {
+	close(mcb.stopChan)
+	mcb.flush() // Final flush on shutdown
+}
+
+func (mcb *MessageCacheBatcher) Add(m *discordgo.Message) {
+	if m.GuildID == "" || m.Author == nil {
+		return
+	}
+
+	mcb.mu.Lock()
+	mcb.messages = append(mcb.messages, cachedMessage{
+		ID:        m.ID,
+		GuildID:   m.GuildID,
+		ChannelID: m.ChannelID,
+		AuthorID:  m.Author.ID,
+		Content:   m.Content,
+		CreatedAt: m.Timestamp.Format(time.RFC3339),
+	})
+
+	// Flush immediately if batch is full
+	if len(mcb.messages) >= mcb.maxBatchSize {
+		mcb.flushLocked()
+	}
+	mcb.mu.Unlock()
+}
+
+func (mcb *MessageCacheBatcher) run() {
+	ticker := time.NewTicker(mcb.flushInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-mcb.stopChan:
+			return
+		case <-ticker.C:
+			mcb.flush()
+		}
+	}
+}
+
+func (mcb *MessageCacheBatcher) flush() {
+	mcb.mu.Lock()
+	mcb.flushLocked()
+	mcb.mu.Unlock()
+}
+
+func (mcb *MessageCacheBatcher) flushLocked() {
+	if len(mcb.messages) == 0 {
+		return
+	}
+
+	// Copy messages and clear buffer
+	toWrite := mcb.messages
+	mcb.messages = make([]cachedMessage, 0, mcb.maxBatchSize)
+
+	// Batch insert in a single transaction
+	go func(messages []cachedMessage) {
+		tx, err := mcb.bot.DB.Begin()
+		if err != nil {
+			log.Printf("Failed to begin message cache transaction: %v", err)
+			return
+		}
+
+		stmt, err := tx.Prepare(`
+			INSERT OR REPLACE INTO message_cache
+			(message_id, guild_id, channel_id, author_id, content, created_at)
+			VALUES (?, ?, ?, ?, ?, ?)`)
+		if err != nil {
+			tx.Rollback()
+			log.Printf("Failed to prepare message cache statement: %v", err)
+			return
+		}
+		defer stmt.Close()
+
+		for _, m := range messages {
+			_, err := stmt.Exec(m.ID, m.GuildID, m.ChannelID, m.AuthorID, m.Content, m.CreatedAt)
+			if err != nil {
+				log.Printf("Failed to cache message %s: %v", m.ID, err)
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			log.Printf("Failed to commit message cache transaction: %v", err)
+		}
+	}(toWrite)
+}
+
+// ============================================================================
+// EVENT LOG BATCHER - Batches voice/nickname/avatar log events
+// ============================================================================
+
+type EventLogBatcher struct {
+	bot           *Bot
+	events        map[string][]LogEvent // guildID -> events
+	mu            sync.Mutex
+	stopChan      chan struct{}
+	flushInterval time.Duration
+}
+
+type LogEvent struct {
+	Type      string // "voice_join", "voice_leave", "nickname", "avatar"
+	UserID    string
+	Username  string
+	ChannelID string
+	OldValue  string
+	NewValue  string
+	Timestamp time.Time
+	Extra     map[string]string // For additional data like avatar URLs
+}
+
+func NewEventLogBatcher(bot *Bot) *EventLogBatcher {
+	return &EventLogBatcher{
+		bot:           bot,
+		events:        make(map[string][]LogEvent),
+		stopChan:      make(chan struct{}),
+		flushInterval: 10 * time.Second,
+	}
+}
+
+func (elb *EventLogBatcher) Start() {
+	go elb.run()
+}
+
+func (elb *EventLogBatcher) Stop() {
+	close(elb.stopChan)
+	elb.flushAll()
+}
+
+func (elb *EventLogBatcher) AddEvent(guildID string, event LogEvent) {
+	elb.mu.Lock()
+	defer elb.mu.Unlock()
+	elb.events[guildID] = append(elb.events[guildID], event)
+}
+
+func (elb *EventLogBatcher) run() {
+	ticker := time.NewTicker(elb.flushInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-elb.stopChan:
+			return
+		case <-ticker.C:
+			elb.flushAll()
+		}
+	}
+}
+
+func (elb *EventLogBatcher) flushAll() {
+	elb.mu.Lock()
+	defer elb.mu.Unlock()
+
+	for guildID, events := range elb.events {
+		if len(events) == 0 {
+			continue
+		}
+
+		config, err := elb.bot.GetLoggingConfigCached(guildID)
+		if err != nil || !config.Enabled || config.LogChannelID == "" {
+			delete(elb.events, guildID)
+			continue
+		}
+
+		elb.sendBatchedEvents(guildID, config, events)
+		delete(elb.events, guildID)
+	}
+}
+
+func (elb *EventLogBatcher) sendBatchedEvents(guildID string, config *LoggingConfig, events []LogEvent) {
+	// Group events by type
+	voiceJoins := []LogEvent{}
+	voiceLeaves := []LogEvent{}
+	nickChanges := []LogEvent{}
+	avatarChanges := []LogEvent{}
+
+	for _, e := range events {
+		switch e.Type {
+		case "voice_join":
+			if config.MemberJoinVoice {
+				voiceJoins = append(voiceJoins, e)
+			}
+		case "voice_leave":
+			if config.MemberLeaveVoice {
+				voiceLeaves = append(voiceLeaves, e)
+			}
+		case "nickname":
+			if config.NicknameChange {
+				nickChanges = append(nickChanges, e)
+			}
+		case "avatar":
+			if config.AvatarChange {
+				avatarChanges = append(avatarChanges, e)
+			}
+		}
+	}
+
+	// Send batched voice joins
+	if len(voiceJoins) > 0 {
+		elb.sendVoiceBatch(config.LogChannelID, "Members Joined Voice", 0x2ecc71, voiceJoins)
+	}
+
+	// Send batched voice leaves
+	if len(voiceLeaves) > 0 {
+		elb.sendVoiceBatch(config.LogChannelID, "Members Left Voice", 0xe74c3c, voiceLeaves)
+	}
+
+	// Send batched nickname changes
+	if len(nickChanges) > 0 {
+		elb.sendNicknameBatch(config.LogChannelID, nickChanges)
+	}
+
+	// Send batched avatar changes
+	if len(avatarChanges) > 0 {
+		elb.sendAvatarBatch(config.LogChannelID, avatarChanges)
+	}
+}
+
+func (elb *EventLogBatcher) sendVoiceBatch(channelID, title string, color int, events []LogEvent) {
+	// Group by channel
+	channelMap := make(map[string][]string)
+	for _, e := range events {
+		channelMap[e.ChannelID] = append(channelMap[e.ChannelID], fmt.Sprintf("<@%s>", e.UserID))
+	}
+
+	var fields []*discordgo.MessageEmbedField
+	for chID, users := range channelMap {
+		userList := users
+		extra := ""
+		if len(users) > 15 {
+			userList = users[:15]
+			extra = fmt.Sprintf(" (+%d more)", len(users)-15)
+		}
+
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("<#%s>", chID),
+			Value:  strings.Join(userList, ", ") + extra,
+			Inline: false,
+		})
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       title,
+		Description: fmt.Sprintf("**%d** voice events in the last 10 seconds", len(events)),
+		Color:       color,
+		Fields:      fields,
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+
+	_, err := elb.bot.Session.ChannelMessageSendEmbed(channelID, embed)
+	if err != nil {
+		log.Printf("Failed to send batched voice events: %v", err)
+	}
+}
+
+func (elb *EventLogBatcher) sendNicknameBatch(channelID string, events []LogEvent) {
+	var fields []*discordgo.MessageEmbedField
+
+	for i, e := range events {
+		if i >= 10 { // Limit to 10 to avoid embed limits
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "...",
+				Value:  fmt.Sprintf("+%d more nickname changes", len(events)-10),
+				Inline: false,
+			})
+			break
+		}
+
+		oldNick := e.OldValue
+		if oldNick == "" {
+			oldNick = e.Username
+		}
+		newNick := e.NewValue
+		if newNick == "" {
+			newNick = e.Username
+		}
+
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("<@%s>", e.UserID),
+			Value:  fmt.Sprintf("`%s` → `%s`", oldNick, newNick),
+			Inline: true,
+		})
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Nickname Changes",
+		Description: fmt.Sprintf("**%d** nickname changes in the last 10 seconds", len(events)),
+		Color:       0x9b59b6,
+		Fields:      fields,
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+
+	_, err := elb.bot.Session.ChannelMessageSendEmbed(channelID, embed)
+	if err != nil {
+		log.Printf("Failed to send batched nickname changes: %v", err)
+	}
+}
+
+func (elb *EventLogBatcher) sendAvatarBatch(channelID string, events []LogEvent) {
+	var fields []*discordgo.MessageEmbedField
+
+	for i, e := range events {
+		if i >= 10 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "...",
+				Value:  fmt.Sprintf("+%d more avatar changes", len(events)-10),
+				Inline: false,
+			})
+			break
+		}
+
+		value := "Avatar updated"
+		if newURL, ok := e.Extra["new_avatar_url"]; ok && newURL != "" {
+			value = fmt.Sprintf("[New Avatar](%s)", newURL)
+		}
+
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("<@%s>", e.UserID),
+			Value:  value,
+			Inline: true,
+		})
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Avatar Changes",
+		Description: fmt.Sprintf("**%d** avatar changes in the last 10 seconds", len(events)),
+		Color:       0x1abc9c,
+		Fields:      fields,
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+
+	_, err := elb.bot.Session.ChannelMessageSendEmbed(channelID, embed)
+	if err != nil {
+		log.Printf("Failed to send batched avatar changes: %v", err)
+	}
+}
+
 // PresenceBatcher batches presence changes to avoid spam
 type PresenceBatcher struct {
 	mu              sync.Mutex
@@ -173,7 +601,7 @@ func (pb *PresenceBatcher) sendBatchedPresences(guildID, logChannelID string, ch
 	}
 }
 
-// GetLoggingConfig gets the logging configuration for a guild
+// GetLoggingConfig gets the logging configuration for a guild (direct DB access)
 func (b *Bot) GetLoggingConfig(guildID string) (*LoggingConfig, error) {
 	var config LoggingConfig
 	var (
@@ -220,6 +648,36 @@ func (b *Bot) GetLoggingConfig(guildID string) (*LoggingConfig, error) {
 	return &config, nil
 }
 
+// GetLoggingConfigCached gets the logging configuration with caching
+func (b *Bot) GetLoggingConfigCached(guildID string) (*LoggingConfig, error) {
+	// Check cache first
+	if b.ConfigCache != nil {
+		if cached, ok := b.ConfigCache.Get(guildID); ok {
+			return cached, nil
+		}
+	}
+
+	// Cache miss, fetch from DB
+	config, err := b.GetLoggingConfig(guildID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in cache
+	if b.ConfigCache != nil {
+		b.ConfigCache.Set(guildID, config)
+	}
+
+	return config, nil
+}
+
+// InvalidateLoggingConfigCache invalidates the cached config for a guild
+func (b *Bot) InvalidateLoggingConfigCache(guildID string) {
+	if b.ConfigCache != nil {
+		b.ConfigCache.Invalidate(guildID)
+	}
+}
+
 // IsChannelLoggingEnabled checks if a specific logging type is enabled for a channel
 func (b *Bot) IsChannelLoggingEnabled(guildID, channelID, logType string) (bool, error) {
 	// First check if there's a channel override
@@ -258,12 +716,19 @@ func (b *Bot) IsChannelLoggingEnabled(guildID, channelID, logType string) (bool,
 	return false, nil
 }
 
-// CacheMessage caches a message for potential logging
+// CacheMessage caches a message for potential logging (uses batcher for efficiency)
 func (b *Bot) CacheMessage(m *discordgo.Message) {
 	if m.GuildID == "" {
 		return
 	}
 
+	// Use the batcher for efficient batched writes
+	if b.MessageCacheBatcher != nil {
+		b.MessageCacheBatcher.Add(m)
+		return
+	}
+
+	// Fallback to direct write if batcher not available
 	_, err := b.DB.Exec(`
 		INSERT OR REPLACE INTO message_cache (message_id, guild_id, channel_id, author_id, content, created_at)
 		VALUES (?, ?, ?, ?, ?, ?)`,

@@ -12,14 +12,19 @@ import (
 )
 
 type Bot struct {
-	Session         *discordgo.Session
-	DB              *Database
-	Commands        *commands.Manager
-	CleanWorker     *AutoCleanWorker
-	PresenceBatcher *PresenceBatcher
-	SpamFilter      *SpamFilter
-	PermChecker     *PermissionChecker
-	VoiceXPTracker  *VoiceXPTracker
+	Session             *discordgo.Session
+	DB                  *Database
+	Commands            *commands.Manager
+	CleanWorker         *AutoCleanWorker
+	PresenceBatcher     *PresenceBatcher
+	SpamFilter          *SpamFilter
+	PermChecker         *PermissionChecker
+	VoiceXPTracker      *VoiceXPTracker
+	ConfigCache         *ConfigCache
+	MessageCacheBatcher *MessageCacheBatcher
+	EventLogBatcher     *EventLogBatcher
+	XPBatcher           *XPBatcher
+	VoiceXPConfigCache  *VoiceXPConfigCache
 }
 
 // RecoverFromPanic recovers from panics and logs stack trace if enabled
@@ -79,6 +84,26 @@ func New() (*Bot, error) {
 
 	// Initialize presence batcher
 	b.PresenceBatcher = NewPresenceBatcher(b)
+
+	// Initialize config cache (30 second TTL)
+	b.ConfigCache = NewConfigCache(30 * time.Second)
+	DebugLog("Config cache initialized (30s TTL)")
+
+	// Initialize message cache batcher (batches DB writes)
+	b.MessageCacheBatcher = NewMessageCacheBatcher(b)
+	DebugLog("Message cache batcher initialized")
+
+	// Initialize event log batcher (batches voice/nickname/avatar logs)
+	b.EventLogBatcher = NewEventLogBatcher(b)
+	DebugLog("Event log batcher initialized")
+
+	// Initialize XP batcher (batches XP updates)
+	b.XPBatcher = NewXPBatcher(b)
+	DebugLog("XP batcher initialized")
+
+	// Initialize voice XP config cache (30 second TTL)
+	b.VoiceXPConfigCache = NewVoiceXPConfigCache(30 * time.Second)
+	DebugLog("Voice XP config cache initialized")
 
 	// Initialize spam filter
 	b.SpamFilter = NewSpamFilter(b)
@@ -193,6 +218,15 @@ func (b *Bot) Start() error {
 	// Start presence batcher
 	b.PresenceBatcher.Start()
 
+	// Start message cache batcher
+	b.MessageCacheBatcher.Start()
+
+	// Start event log batcher
+	b.EventLogBatcher.Start()
+
+	// Start XP batcher
+	b.XPBatcher.Start()
+
 	// Start voice XP tracker
 	b.VoiceXPTracker.Start()
 
@@ -202,6 +236,9 @@ func (b *Bot) Start() error {
 func (b *Bot) Stop() {
 	b.CleanWorker.Stop()
 	b.PresenceBatcher.Stop()
+	b.MessageCacheBatcher.Stop()
+	b.EventLogBatcher.Stop()
+	b.XPBatcher.Stop()
 	b.VoiceXPTracker.Stop()
 	b.Session.Close()
 	b.DB.Close()
@@ -379,7 +416,15 @@ func (b *Bot) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) 
 }
 
 func (b *Bot) giveXPAsync(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Import rand at top if not already imported
-	xp := 15 + (int(m.ID[0]) % 11) // Pseudo-random 15-25 XP based on message ID
+	// Pseudo-random 15-25 XP based on message ID
+	xp := 15 + (int(m.ID[0]) % 11)
+
+	// Use XP batcher for efficient batched updates
+	if b.XPBatcher != nil {
+		b.XPBatcher.AddXP(m.GuildID, m.Author.ID, m.ChannelID, xp)
+		return
+	}
+
+	// Fallback to direct XP (shouldn't happen normally)
 	go b.giveXP(s, m.GuildID, m.Author.ID, m.ChannelID, xp)
 }

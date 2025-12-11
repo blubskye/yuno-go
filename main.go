@@ -7,12 +7,20 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 
 	"yuno-go/internal/bot"
+)
+
+// Connection state tracking
+var (
+	isConnected     atomic.Bool
+	reconnectCount  atomic.Int32
+	lastDisconnect  atomic.Int64
 )
 
 // displayStartupBanner shows the ASCII art banner
@@ -39,6 +47,81 @@ var (
 	traceFlag   = flag.Bool("trace", false, "Enable full stack traces on panics")
 	configPath  = flag.String("config", "config.toml", "Path to configuration file")
 )
+
+// setupReconnectionHandlers adds handlers for connection events
+func setupReconnectionHandlers(s *discordgo.Session) {
+	// Handle successful connection
+	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		isConnected.Store(true)
+		count := reconnectCount.Load()
+		if count > 0 {
+			log.Printf("✓ Reconnected successfully (attempt #%d)", count)
+			reconnectCount.Store(0)
+		}
+	})
+
+	// Handle disconnection
+	s.AddHandler(func(s *discordgo.Session, d *discordgo.Disconnect) {
+		isConnected.Store(false)
+		lastDisconnect.Store(time.Now().Unix())
+		log.Printf("⚠️  Disconnected from Discord gateway")
+	})
+
+	// Handle resumed connection
+	s.AddHandler(func(s *discordgo.Session, r *discordgo.Resumed) {
+		isConnected.Store(true)
+		log.Printf("✓ Connection resumed successfully")
+		reconnectCount.Store(0)
+	})
+
+	// Handle connection errors with custom reconnection logic
+	s.AddHandler(func(s *discordgo.Session, c *discordgo.Connect) {
+		isConnected.Store(true)
+		log.Printf("✓ Connected to Discord gateway")
+	})
+}
+
+// connectionMonitor watches the connection and forces reconnection if needed
+func connectionMonitor(yuno *bot.Bot, stopChan <-chan struct{}) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stopChan:
+			return
+		case <-ticker.C:
+			// Check if we've been disconnected for too long
+			if !isConnected.Load() {
+				lastDC := lastDisconnect.Load()
+				if lastDC > 0 && time.Since(time.Unix(lastDC, 0)) > 2*time.Minute {
+					count := reconnectCount.Add(1)
+					log.Printf("⚠️  Connection lost for >2 minutes, attempting reconnect #%d...", count)
+
+					// Close and reopen connection
+					yuno.Session.Close()
+					time.Sleep(5 * time.Second)
+
+					if err := yuno.Session.Open(); err != nil {
+						log.Printf("❌ Reconnect failed: %v", err)
+
+						// Exponential backoff
+						backoff := time.Duration(min(int(count)*10, 120)) * time.Second
+						log.Printf("⏳ Waiting %v before next attempt...", backoff)
+						time.Sleep(backoff)
+					}
+				}
+			}
+		}
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 // Global config will be loaded here
 func main() {
@@ -90,6 +173,12 @@ func main() {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}
 
+	// 2.5 Setup reconnection handlers BEFORE opening connection
+	setupReconnectionHandlers(yuno.Session)
+
+	// Enable automatic reconnection in discordgo
+	yuno.Session.ShouldReconnectOnError = true
+
 	// 3. Set custom status from config
 	activityType := discordgo.ActivityTypeWatching
 	switch bot.Global.Bot.ActivityType {
@@ -134,12 +223,18 @@ func main() {
 	// Start DM cleanup in background
 	go yuno.StartDMCleanup()
 
+	// 6.5 Start connection monitor for auto-reconnection
+	monitorStop := make(chan struct{})
+	go connectionMonitor(yuno, monitorStop)
+	log.Println("✓ Connection monitor started (auto-reconnect enabled)")
+
 	// 7. Graceful shutdown handling
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
 	// 8. Farewell
+	close(monitorStop) // Stop connection monitor
 	terminal.Stop()
 	log.Println("→ Shutting down... Ara ara~")
 	time.Sleep(500 * time.Millisecond)
