@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -10,9 +11,10 @@ import (
 
 // AutoCleanWorker manages automatic channel cleaning
 type AutoCleanWorker struct {
-	bot      *Bot
-	stopChan chan bool
-	ticker   *time.Ticker
+	bot           *Bot
+	stopChan      chan bool
+	ticker        *time.Ticker
+	cleaningLocks sync.Map // Prevents concurrent cleans of the same channel
 }
 
 // NewAutoCleanWorker creates a new auto-clean worker
@@ -49,9 +51,15 @@ func (w *AutoCleanWorker) Stop() {
 
 // checkScheduledCleans checks for channels that need cleaning
 func (w *AutoCleanWorker) checkScheduledCleans() {
+	// Don't run if bot is not connected
+	if w.bot.Session == nil || w.bot.Session.State == nil || w.bot.Session.State.User == nil {
+		log.Printf("[AutoClean] Skipping check - bot not connected")
+		return
+	}
+
 	rows, err := w.bot.DB.Query(`
 		SELECT guild_id, channel_id, interval_hours, warning_minutes, next_run, custom_message, custom_image
-		FROM autoclean 
+		FROM autoclean
 		WHERE enabled = 1 AND datetime(next_run) <= datetime('now')
 	`)
 	if err != nil {
@@ -69,6 +77,13 @@ func (w *AutoCleanWorker) checkScheduledCleans() {
 			continue
 		}
 
+		// Check if already cleaning this channel (prevent duplicate cleans)
+		lockKey := guildID + ":" + channelID
+		if _, alreadyCleaning := w.cleaningLocks.LoadOrStore(lockKey, true); alreadyCleaning {
+			log.Printf("[AutoClean] Channel %s already being cleaned, skipping", channelID)
+			continue
+		}
+
 		// Clean the channel
 		go w.cleanChannel(guildID, channelID, intervalHours, customMessage, customImage)
 	}
@@ -76,12 +91,24 @@ func (w *AutoCleanWorker) checkScheduledCleans() {
 
 // cleanChannel performs the actual channel cleaning
 func (w *AutoCleanWorker) cleanChannel(guildID, channelID string, intervalHours int, customMessage, customImage string) {
-	log.Printf("Cleaning channel %s in guild %s", channelID, guildID)
+	lockKey := guildID + ":" + channelID
+
+	// Always release the lock when done
+	defer w.cleaningLocks.Delete(lockKey)
+
+	log.Printf("[AutoClean] Cleaning channel %s in guild %s", channelID, guildID)
+
+	// Double-check connection before proceeding
+	if w.bot.Session == nil || w.bot.Session.State == nil {
+		log.Printf("[AutoClean] Aborting clean - bot disconnected")
+		w.markCleanFailed(guildID, channelID)
+		return
+	}
 
 	// Get the original channel
 	oldChannel, err := w.bot.Session.Channel(channelID)
 	if err != nil {
-		log.Printf("Failed to get channel %s: %v", channelID, err)
+		log.Printf("[AutoClean] Failed to get channel %s: %v", channelID, err)
 		w.markCleanFailed(guildID, channelID)
 		return
 	}
@@ -101,10 +128,29 @@ func (w *AutoCleanWorker) cleanChannel(guildID, channelID string, intervalHours 
 	})
 
 	if err != nil {
-		log.Printf("Failed to clone channel %s: %v", channelID, err)
+		log.Printf("[AutoClean] Failed to clone channel %s: %v", channelID, err)
 		w.markCleanFailed(guildID, channelID)
 		return
 	}
+
+	// CRITICAL: Update database IMMEDIATELY after creating new channel
+	// This prevents the loop where old channel keeps getting selected
+	nextRun := time.Now().Add(time.Duration(intervalHours) * time.Hour)
+	_, err = w.bot.DB.Exec(`
+		UPDATE autoclean
+		SET channel_id = ?, next_run = ?, last_clean = datetime('now'), warned = 0
+		WHERE guild_id = ? AND channel_id = ?`,
+		newChannel.ID, nextRun.Format(time.RFC3339), guildID, channelID)
+
+	if err != nil {
+		log.Printf("[AutoClean] CRITICAL: Failed to update database with new channel ID: %v", err)
+		// Try to delete the new channel since we couldn't update DB
+		w.bot.Session.ChannelDelete(newChannel.ID)
+		w.markCleanFailed(guildID, channelID)
+		return
+	}
+
+	log.Printf("[AutoClean] Database updated: old=%s -> new=%s", channelID, newChannel.ID)
 
 	// Move new channel to same position (Discord might not respect position in create)
 	newPosition := oldChannel.Position
@@ -112,14 +158,14 @@ func (w *AutoCleanWorker) cleanChannel(guildID, channelID string, intervalHours 
 		Position: &newPosition,
 	})
 	if err != nil {
-		log.Printf("Warning: Failed to reposition channel: %v", err)
+		log.Printf("[AutoClean] Warning: Failed to reposition channel: %v", err)
 	}
 
-	// Delete the old channel
+	// Delete the old channel (non-critical - if this fails, we still have a working new channel)
 	_, err = w.bot.Session.ChannelDelete(channelID)
 	if err != nil {
-		log.Printf("Failed to delete old channel %s: %v", channelID, err)
-		// Don't return - we still want to update the database with new channel ID
+		log.Printf("[AutoClean] Warning: Failed to delete old channel %s: %v (new channel %s is active)", channelID, err, newChannel.ID)
+		// Don't fail - the new channel is already set up and DB is updated
 	}
 
 	// Send completion message
@@ -145,22 +191,10 @@ func (w *AutoCleanWorker) cleanChannel(guildID, channelID string, intervalHours 
 
 	_, err = w.bot.Session.ChannelMessageSendEmbed(newChannel.ID, embed)
 	if err != nil {
-		log.Printf("Failed to send clean message: %v", err)
+		log.Printf("[AutoClean] Warning: Failed to send clean message: %v", err)
 	}
 
-	// Update database with new channel ID and next run time
-	nextRun := time.Now().Add(time.Duration(intervalHours) * time.Hour)
-	_, err = w.bot.DB.Exec(`
-		UPDATE autoclean 
-		SET channel_id = ?, next_run = ?, last_clean = datetime('now')
-		WHERE guild_id = ? AND channel_id = ?`,
-		newChannel.ID, nextRun.Format(time.RFC3339), guildID, channelID)
-
-	if err != nil {
-		log.Printf("Failed to update autoclean database: %v", err)
-	}
-
-	log.Printf("Successfully cleaned channel. Old: %s, New: %s", channelID, newChannel.ID)
+	log.Printf("[AutoClean] Successfully cleaned channel. Old: %s, New: %s", channelID, newChannel.ID)
 }
 
 // markCleanFailed marks a clean as failed and reschedules
