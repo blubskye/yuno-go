@@ -64,74 +64,209 @@ func (c *SetPrefixCommand) Execute(ctx *Context) error {
 // SetPresenceCommand changes the bot's presence/status
 type SetPresenceCommand struct{}
 
-func (c *SetPresenceCommand) Name() string        { return "set-presence" }
-func (c *SetPresenceCommand) Aliases() []string   { return []string{"setpresence", "setstatus"} }
-func (c *SetPresenceCommand) Description() string { return "Set the bot's status/presence" }
-func (c *SetPresenceCommand) Usage() string       { return "set-presence <type> <text>" }
+func (c *SetPresenceCommand) Name() string      { return "set-presence" }
+func (c *SetPresenceCommand) Aliases() []string { return []string{"setpresence", "setstatus", "presence", "activity"} }
+func (c *SetPresenceCommand) Description() string {
+	return "Set the bot's activity status and online presence"
+}
+func (c *SetPresenceCommand) Usage() string {
+	return "set-presence <type> <text> | set-presence status <status> | set-presence clear"
+}
 func (c *SetPresenceCommand) RequiredPermissions() []int64 { return nil }
-func (c *SetPresenceCommand) MasterOnly() bool { return true }
+func (c *SetPresenceCommand) MasterOnly() bool             { return true }
 
 func (c *SetPresenceCommand) Execute(ctx *Context) error {
+	if len(ctx.Args) < 1 {
+		if ctx.Message != nil {
+			ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
+				"ℹ️ **Set Presence Command**\n\n"+
+					"*\"Let me show you how I'm feeling~\"* 💕\n\n"+
+					"**Usage:**\n"+
+					"`set-presence <type> <text>` - Set activity with text\n"+
+					"`set-presence status <status>` - Set online status\n"+
+					"`set-presence clear` - Clear current activity\n\n"+
+					"**Activity Types:**\n"+
+					"• `playing` - Playing <text>\n"+
+					"• `watching` - Watching <text>\n"+
+					"• `listening` - Listening to <text>\n"+
+					"• `streaming` - Streaming <text> (requires URL)\n"+
+					"• `competing` - Competing in <text>\n\n"+
+					"**Status Options:**\n"+
+					"• `online` - Green dot\n"+
+					"• `idle` - Yellow dot\n"+
+					"• `dnd` - Red dot (Do Not Disturb)\n"+
+					"• `invisible` - Appear offline\n\n"+
+					"**Examples:**\n"+
+					"`set-presence playing with Yukki's heart`\n"+
+					"`set-presence watching over my senpai`\n"+
+					"`set-presence listening to Future Diary OST`\n"+
+					"`set-presence streaming Yuno Gasai https://twitch.tv/example`\n"+
+					"`set-presence status dnd`\n"+
+					"`set-presence clear`")
+		}
+		return nil
+	}
+
+	subcommand := strings.ToLower(ctx.Args[0])
+
+	// Handle clear
+	if subcommand == "clear" || subcommand == "reset" || subcommand == "none" {
+		err := ctx.Session.UpdateStatusComplex(discordgo.UpdateStatusData{
+			Activities: []*discordgo.Activity{},
+			Status:     "online",
+		})
+		if err != nil {
+			if ctx.Message != nil {
+				ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
+					fmt.Sprintf("❌ Failed to clear presence: %v", err))
+			}
+			return err
+		}
+		if ctx.Message != nil {
+			ctx.Session.ChannelMessageSend(ctx.Message.ChannelID, "✅ Presence cleared~")
+		}
+		return nil
+	}
+
+	// Handle status change
+	if subcommand == "status" {
+		if len(ctx.Args) < 2 {
+			if ctx.Message != nil {
+				ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
+					"❌ Invalid status. Options: `online`, `idle`, `dnd`, `invisible`")
+			}
+			return nil
+		}
+
+		status := strings.ToLower(ctx.Args[1])
+		validStatuses := map[string]bool{"online": true, "idle": true, "dnd": true, "invisible": true}
+		if !validStatuses[status] {
+			if ctx.Message != nil {
+				ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
+					"❌ Invalid status. Options: `online`, `idle`, `dnd`, `invisible`")
+			}
+			return nil
+		}
+
+		err := ctx.Session.UpdateStatusComplex(discordgo.UpdateStatusData{
+			Status: status,
+		})
+		if err != nil {
+			if ctx.Message != nil {
+				ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
+					fmt.Sprintf("❌ Failed to set status: %v", err))
+			}
+			return err
+		}
+
+		statusEmoji := map[string]string{
+			"online":    "🟢",
+			"idle":      "🟡",
+			"dnd":       "🔴",
+			"invisible": "⚪",
+		}
+
+		if ctx.Message != nil {
+			ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
+				fmt.Sprintf("%s Status set to **%s**~", statusEmoji[status], status))
+		}
+		return nil
+	}
+
+	// Handle activity type
+	activityTypes := map[string]discordgo.ActivityType{
+		"playing":   discordgo.ActivityTypeGame,
+		"streaming": discordgo.ActivityTypeStreaming,
+		"listening": discordgo.ActivityTypeListening,
+		"watching":  discordgo.ActivityTypeWatching,
+		"competing": discordgo.ActivityTypeCompeting,
+	}
+
+	actType, ok := activityTypes[subcommand]
+	if !ok {
+		if ctx.Message != nil {
+			ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
+				fmt.Sprintf("❌ Unknown type: `%s`\nValid types: `playing`, `watching`, `listening`, `streaming`, `competing`", subcommand))
+		}
+		return nil
+	}
+
+	// Get the activity text
 	if len(ctx.Args) < 2 {
 		if ctx.Message != nil {
 			ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
-				"Usage: `set-presence <playing|watching|listening|streaming> <status text>`")
+				"❌ Please provide activity text!")
 		}
 		return nil
 	}
 
-	activityType := strings.ToLower(ctx.Args[0])
-	statusText := strings.Join(ctx.Args[1:], " ")
+	activityText := strings.Join(ctx.Args[1:], " ")
+	var streamURL string
 
-	var actType discordgo.ActivityType
-	switch activityType {
-	case "playing":
-		actType = discordgo.ActivityTypeGame
-	case "watching":
-		actType = discordgo.ActivityTypeWatching
-	case "listening":
-		actType = discordgo.ActivityTypeListening
-	case "streaming":
-		actType = discordgo.ActivityTypeStreaming
-	case "competing":
-		actType = discordgo.ActivityTypeCompeting
-	default:
+	// For streaming, check for URL
+	if actType == discordgo.ActivityTypeStreaming {
+		// Extract URL from text
+		parts := strings.Fields(activityText)
+		for i, part := range parts {
+			if strings.HasPrefix(part, "http://") || strings.HasPrefix(part, "https://") {
+				streamURL = part
+				// Remove URL from activity text
+				parts = append(parts[:i], parts[i+1:]...)
+				activityText = strings.Join(parts, " ")
+				break
+			}
+		}
+
+		if streamURL == "" {
+			if ctx.Message != nil {
+				ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
+					"❌ Streaming requires a URL!\nExample: `set-presence streaming My Stream https://twitch.tv/example`")
+			}
+			return nil
+		}
+	}
+
+	if activityText == "" {
 		if ctx.Message != nil {
 			ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
-				"Invalid activity type. Use: playing, watching, listening, streaming, or competing")
+				"❌ Please provide activity text!")
 		}
 		return nil
+	}
+
+	activity := &discordgo.Activity{
+		Name: activityText,
+		Type: actType,
+	}
+	if streamURL != "" {
+		activity.URL = streamURL
 	}
 
 	err := ctx.Session.UpdateStatusComplex(discordgo.UpdateStatusData{
-		Activities: []*discordgo.Activity{
-			{
-				Name: statusText,
-				Type: actType,
-			},
-		},
-		Status: string(discordgo.StatusOnline),
+		Activities: []*discordgo.Activity{activity},
 	})
 
 	if err != nil {
 		if ctx.Message != nil {
-			ctx.Session.ChannelMessageSend(ctx.Message.ChannelID, "Error updating presence.")
+			ctx.Session.ChannelMessageSend(ctx.Message.ChannelID,
+				fmt.Sprintf("❌ Failed to set presence: %v", err))
 		}
 		return err
 	}
 
+	typeDisplay := strings.Title(subcommand)
 	if ctx.Message != nil {
-		embed := &discordgo.MessageEmbed{
-			Title:       "✅ Presence Updated",
-			Description: fmt.Sprintf("Now %s **%s**", activityType, statusText),
-			Color:       0x00FF00,
+		msg := fmt.Sprintf("✅ Now **%s** %s", typeDisplay, activityText)
+		if streamURL != "" {
+			msg += fmt.Sprintf(" (%s)", streamURL)
 		}
-		_, err = ctx.Session.ChannelMessageSendEmbed(ctx.Message.ChannelID, embed)
+		msg += "~"
+		ctx.Session.ChannelMessageSend(ctx.Message.ChannelID, msg)
 	} else {
-		fmt.Printf("Presence updated: %s %s\n", activityType, statusText)
+		fmt.Printf("Now %s %s\n", subcommand, activityText)
 	}
 
-	return err
+	return nil
 }
 
 // ConfigCommand shows server configuration

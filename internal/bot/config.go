@@ -27,6 +27,7 @@ type BotConfig struct {
 	OwnerIDs     []string `toml:"owner_ids"`
 	Status       string   `toml:"status"`
 	ActivityType string   `toml:"activity_type"`
+	MasterServer string   `toml:"master_server"`
 }
 
 type DatabaseConfig struct {

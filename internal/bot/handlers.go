@@ -99,7 +99,7 @@ func (b *Bot) onMemberJoin(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	log.Printf("%s joined %s", m.User.String(), m.GuildID)
 }
 
-// Voice XP stub – ready for full implementation
+// Voice XP tracking handler
 func (b *Bot) onVoiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	defer RecoverFromPanic("onVoiceStateUpdate")
 
@@ -108,5 +108,6 @@ func (b *Bot) onVoiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUp
 			v.UserID, v.GuildID, v.ChannelID)
 	}
 
-	// Coming in Phase 2
+	// Pass to voice XP tracker
+	b.VoiceXPTracker.HandleVoiceStateUpdate(s, v)
 }

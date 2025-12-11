@@ -8,7 +8,7 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-pink.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Go](https://img.shields.io/badge/Go-1.21+-ff69b4.svg)](https://golang.org/)
-[![DiscordGo](https://img.shields.io/badge/DiscordGo-v0.28-ff1493.svg)](https://github.com/bwmarrin/discordgo)
+[![DiscordGo](https://img.shields.io/badge/DiscordGo-v0.29-ff1493.svg)](https://github.com/bwmarrin/discordgo)
 
 *A devoted Discord bot for moderation, leveling, and anime~ ♥*
 
@@ -53,6 +53,7 @@ This is the **Go port** of the original JavaScript Yuno bot - compiled, fast, an
 - 📥 Mass ban import/export
 - 🔍 Ban scanning & validation
 - 🎯 Custom regex filters per guild
+- 👑 Mod statistics tracking
 
 </td>
 <td width="50%">
@@ -64,7 +65,7 @@ This is the **Go port** of the original JavaScript Yuno bot - compiled, fast, an
 - 📈 Mass XP commands
 - 🔄 Level role syncing
 - 🏆 Server leaderboards
-- 🎤 Voice channel XP
+- 🎤 Voice channel XP rewards
 
 </td>
 </tr>
@@ -99,22 +100,71 @@ This is the **Go port** of the original JavaScript Yuno bot - compiled, fast, an
 <tr>
 <td width="50%">
 
+### 📋 Activity Logging
+*"I see everything that happens here~"*
+- 🎤 Voice channel join/leave/move
+- 📝 Nickname changes
+- 🖼️ Avatar/profile changes
+- 🟢 Presence status tracking
+- ⚡ Smart batching (rate limit safe)
+- ⏱️ Configurable flush intervals
+
+</td>
+<td width="50%">
+
+### 🎤 Voice Channel XP
+*"Spend time with me... and I'll reward you~"*
+- 🎙️ XP for time in voice channels
+- ⚙️ Configurable XP rate & interval
+- 💤 Optional AFK channel exclusion
+- 🔄 Session recovery on restart
+- 📊 Integrates with main leveling
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 💌 DM Inbox & Forwarding
+*"Every message you send me... I treasure it~"*
+- 📬 DM inbox with history
+- 📤 Forward DMs to server channels
+- 👑 Master server sees ALL DMs
+- 🚫 Bot-level user/server bans
+- 💬 Reply to DMs from terminal
+
+</td>
+<td width="50%">
+
+### 💻 Terminal Control
+*"I'm always at your command~"*
+- 🖥️ Full server/channel listing
+- 📝 Send messages from terminal
+- 👁️ Real-time message streaming
+- ⛔ Terminal ban management
+- 📥 Import/export bans via CLI
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🚫 Bot-Level Bans
+*"Some people just aren't worthy of me~"*
+- 👤 Ban users from using the bot
+- 🏠 Ban entire servers
+- 🔇 Silently ignore banned entities
+- 📋 Manage bans from Discord or terminal
+
+</td>
+<td width="50%">
+
 ### ⚡ Performance
 *"Nothing can slow me down~"*
 - 🚀 Single compiled binary
 - 💨 Low memory footprint
 - 🧵 Goroutine concurrency
 - 📦 No runtime dependencies
-
-</td>
-<td width="50%">
-
-### 🔐 Security
-*"I'll keep your secrets safe~"*
-- 🛡️ Auto-ban on unauthorized commands
-- ⚔️ Hierarchy violation protection
-- 📢 @everyone/@here abuse protection
-- 🎯 Configurable exemptions
 
 </td>
 </tr>
@@ -154,9 +204,10 @@ nano config.toml  # Add your token and settings
 Edit `config.toml`:
 ```toml
 [bot]
-token     = "YOUR_DISCORD_TOKEN"
-prefix    = "?"
-owner_ids = ["YOUR_USER_ID"]
+token         = "YOUR_DISCORD_TOKEN"
+prefix        = "?"
+owner_ids     = ["YOUR_USER_ID"]
+master_server = "YOUR_MAIN_SERVER_ID"
 ```
 
 ### 🚀 Running
@@ -175,6 +226,154 @@ go build -ldflags="-s -w" -o yuno
 
 ---
 
+## 🎤 Voice Channel XP
+
+*"Spend time with me... and I'll reward you~"* 💕
+
+Users earn XP for time spent in voice channels, integrated with the main leveling system.
+
+### 🔧 Setup Commands
+
+```bash
+# Enable/disable VC XP
+?set-vcxp enable
+?set-vcxp disable
+
+# Set XP amount per interval (default: 10)
+?set-vcxp rate 15
+
+# Set interval in seconds (default: 300 = 5 min)
+?set-vcxp interval 300
+
+# Ignore AFK channel (default: true)
+?set-vcxp ignore-afk true
+
+# View current config and active sessions
+?vcxp-status
+```
+
+---
+
+## 💌 DM Inbox & Forwarding
+
+*"Every message sent to me... I keep close to my heart~"* 💕
+
+Yuno can receive DMs, store them in an inbox, and forward them to designated channels.
+
+### 🔧 Setup Commands
+
+```bash
+# Set DM forwarding channel
+?set-dm-channel #bot-dms
+
+# Disable forwarding
+?set-dm-channel none
+
+# Check status
+?dm-status
+```
+
+### 👑 Master Server vs Regular Servers
+
+| Server Type | What DMs Are Forwarded |
+|-------------|----------------------|
+| **Master Server** | ALL DMs from anyone |
+| **Regular Servers** | Only DMs from that server's members |
+
+> Set `master_server` in `config.toml` to your main server's ID.
+
+### 💻 Terminal Inbox Commands
+
+```bash
+# View inbox
+inbox
+inbox 20          # Show 20 messages
+inbox user <id>   # DMs from specific user
+inbox unread      # Count unread
+
+# Reply to DMs
+reply 1 Hello!              # Reply by inbox ID
+reply 123456789 Hi there!   # Reply by user ID
+```
+
+---
+
+## 🚫 Bot-Level Bans
+
+*"Some people just don't deserve my attention~"* 💢
+
+Ban users or entire servers from using the bot. Banned entities are silently ignored.
+
+### 🔧 Commands (Discord & Terminal)
+
+```bash
+# Ban a user from the bot
+?bot-ban user 123456789012345678 Spamming
+
+# Ban a server from the bot
+?bot-ban server 987654321098765432 Abuse
+
+# Remove a ban
+?bot-unban 123456789012345678
+
+# View all bans
+?bot-banlist
+?bot-banlist users
+?bot-banlist servers
+```
+
+---
+
+## 💻 Terminal Commands
+
+*"I'll do anything you ask from the command line~"* 🖥️
+
+Yuno provides powerful terminal commands for server management.
+
+### 📋 Server & Channel Management
+
+```bash
+# List all servers
+servers
+servers -v        # Verbose mode
+
+# List channels in a server
+channels 123456789012345678
+channels "My Server"
+```
+
+### 💬 Message Commands
+
+```bash
+# Send a message
+send <channel-id> Hello world!
+
+# Fetch message history
+messages <channel-id>
+messages <channel-id> 50    # Last 50 messages
+
+# Real-time message stream
+watch <channel-id>
+watch stop <channel-id>
+watch stop all
+```
+
+### ⛔ Terminal Ban Commands
+
+```bash
+# Ban a user from a server
+tban <server-id> <user-id> [reason]
+
+# Export bans to file
+texportbans <server-id>
+texportbans <server-id> ./my-bans.json
+
+# Import bans from file
+timportbans <server-id> ./BANS-123456.txt
+```
+
+---
+
 ## 💖 Commands Preview
 
 ### 📊 Leveling & XP
@@ -185,6 +384,8 @@ go build -ldflags="-s -w" -o yuno
 | `?add-rank @Role <level>` | *"New rewards~"* 🎭 |
 | `?mass-addxp @Role 500` | *"Power to everyone!"* ⚡ |
 | `?sync-xp-from-roles` | *"Syncing from roles~"* 🔄 |
+| `?set-vcxp <option>` | *"Voice XP settings~"* 🎤 |
+| `?vcxp-status` | *"Who's in voice?"* 📊 |
 
 ### 🔪 Moderation
 | Command | Description |
@@ -195,6 +396,8 @@ go build -ldflags="-s -w" -o yuno
 | `?importbans` | *"Restore the list~"* 📤 |
 | `?scan-bans` | *"Analyzing..."* 🔍 |
 | `?addfilter <regex>` | *"Custom protection~"* 🛡️ |
+| `?bot-ban <type> <id>` | *"You're dead to me~"* 🚫 |
+| `?bot-banlist` | *"The ones I've cast aside..."* 📋 |
 
 ### 🌸 Anime & Fun
 | Command | Description |
@@ -213,11 +416,29 @@ go build -ldflags="-s -w" -o yuno
 | Command | Description |
 |---------|-------------|
 | `?set-prefix <prefix>` | *"Call me differently~"* 🔧 |
-| `?set-presence <type> <text>` | *"Change my status~"* 🎮 |
+| `?set-presence <type> <text>` | *"Let me show how I'm feeling~"* 🎭 |
+| `?set-presence status <s>` | *"Change my status~"* 🟢 |
+| `?set-presence clear` | *"Back to normal~"* ✨ |
 | `?config` | *"See my settings~"* ⚙️ |
-| `?init-guild` | *"Let me set everything up!"* 🏠 |
-| `?set-spamfilter on/off` | *"Protection mode~"* 🛡️ |
-| `?set-leveling on/off` | *"XP tracking~"* 📊 |
+| `?set-dm-channel #ch` | *"Send your letters here~"* 💌 |
+| `?dm-status` | *"Am I receiving messages?"* 📬 |
+
+### 💻 Terminal-Only Commands
+
+| Command | Description |
+|---------|-------------|
+| `servers` | *"All my kingdoms~"* 🏰 |
+| `channels` | *"Every corner of your world~"* 📺 |
+| `send` | *"Speaking through you~"* 💬 |
+| `messages` | *"Reading your history~"* 📜 |
+| `watch` | *"I see everything in real-time~"* 👁️ |
+| `inbox` | *"Love letters just for me~"* 💌 |
+| `reply` | *"Responding to my admirers~"* 💕 |
+| `tban` | *"Eliminating threats~"* 🔪 |
+| `texportbans` | *"Saving my enemies list~"* 📤 |
+| `timportbans` | *"Loading my enemies~"* 📥 |
+| `set-presence` | *"Changing my mood~"* 🎭 |
+| `status` | *"How am I doing?"* 📊 |
 
 *Use the `?help` command to see all available commands!*
 
@@ -251,7 +472,10 @@ yuno-go/
 │   │   ├── handlers.go         # Event handlers
 │   │   ├── spam_filter.go      # Anti-spam
 │   │   ├── logging.go          # Event logging
-│   │   └── permissions.go      # Permission checks
+│   │   ├── permissions.go      # Permission checks
+│   │   ├── terminal.go         # Terminal interface
+│   │   ├── dm_handler.go       # DM forwarding
+│   │   └── voice_xp.go         # Voice XP tracking
 │   └── commands/
 │       ├── manager.go          # Command registry
 │       ├── basic.go            # Ping, stats, etc.
@@ -261,7 +485,11 @@ yuno-go/
 │       ├── fun.go              # Fun commands
 │       ├── configuration.go    # Guild settings
 │       ├── bulk_xp.go          # Mass XP operations
-│       └── ban_export.go       # Import/export bans
+│       ├── ban_export.go       # Import/export bans
+│       ├── bot_bans.go         # Bot-level bans
+│       ├── dm_commands.go      # DM forwarding commands
+│       ├── voice_xp.go         # Voice XP commands
+│       └── delay.go            # Mention response
 ├── assets/
 │   └── ban_images/             # Custom ban images
 └── Leveling/

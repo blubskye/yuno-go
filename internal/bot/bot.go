@@ -19,6 +19,7 @@ type Bot struct {
 	PresenceBatcher *PresenceBatcher
 	SpamFilter      *SpamFilter
 	PermChecker     *PermissionChecker
+	VoiceXPTracker  *VoiceXPTracker
 }
 
 // RecoverFromPanic recovers from panics and logs stack trace if enabled
@@ -87,6 +88,10 @@ func New() (*Bot, error) {
 	b.PermChecker = NewPermissionChecker(dg)
 	DebugLog("Permission checker initialized")
 
+	// Initialize voice XP tracker
+	b.VoiceXPTracker = NewVoiceXPTracker(b)
+	DebugLog("Voice XP tracker initialized")
+
 	// Register all commands
 	DebugLog("Registering commands...")
 	b.registerCommands()
@@ -119,6 +124,7 @@ func (b *Bot) registerCommands() {
 	b.Commands.Register(&commands.PingCommand{})
 	b.Commands.Register(&commands.StatsCommand{})
 	b.Commands.Register(&commands.HelpCommand{})
+	b.Commands.Register(&commands.DelayCommand{})
 	
 	// Leveling commands
 	b.Commands.Register(&commands.XPCommand{})
@@ -144,7 +150,16 @@ func (b *Bot) registerCommands() {
 
 	// Owner commands
 	b.Commands.Register(&commands.ShutdownCommand{})
-	
+
+	// Bot-level ban commands
+	b.Commands.Register(&commands.BotBanCommand{})
+	b.Commands.Register(&commands.BotUnbanCommand{})
+	b.Commands.Register(&commands.BotBanlistCommand{})
+
+	// DM commands
+	b.Commands.Register(&commands.SetDMChannelCommand{})
+	b.Commands.Register(&commands.DMStatusCommand{})
+
 	// Auto-clean commands
 	b.Commands.Register(&commands.AutoCleanCommand{})
 	b.Commands.Register(&commands.SetCleanMessageCommand{})
@@ -154,6 +169,10 @@ func (b *Bot) registerCommands() {
 	b.Commands.Register(&commands.SourceCommand{})
 	b.Commands.Register(&commands.AddBanImageCommand{})
 	b.Commands.Register(&commands.DelBanImageCommand{})
+
+	// Voice XP commands
+	b.Commands.Register(&commands.SetVCXPCommand{})
+	b.Commands.Register(&commands.VCXPStatusCommand{})
 
 	// Logging commands
 	b.Commands.Register(&commands.SetLogChannelCommand{})
@@ -174,12 +193,16 @@ func (b *Bot) Start() error {
 	// Start presence batcher
 	b.PresenceBatcher.Start()
 
+	// Start voice XP tracker
+	b.VoiceXPTracker.Start()
+
 	return b.Session.Open()
 }
 
 func (b *Bot) Stop() {
 	b.CleanWorker.Stop()
 	b.PresenceBatcher.Stop()
+	b.VoiceXPTracker.Stop()
 	b.Session.Close()
 	b.DB.Close()
 }
@@ -195,6 +218,14 @@ func (b *Bot) GetSpamFilter() *SpamFilter {
 
 func (b *Bot) GetPermChecker() *PermissionChecker {
 	return b.PermChecker
+}
+
+func (b *Bot) GetMasterServer() string {
+	return Global.Bot.MasterServer
+}
+
+func (b *Bot) GetVoiceXPTracker() *VoiceXPTracker {
+	return b.VoiceXPTracker
 }
 
 func (b *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
@@ -246,13 +277,39 @@ func (b *Bot) dailyCleanupTask() {
 func (b *Bot) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	defer RecoverFromPanic("onMessageCreate")
 
-	if m.Author.Bot || m.GuildID == "" {
+	if m.Author.Bot {
+		return
+	}
+
+	// Check if user or server is bot-banned (silently ignore)
+	banned, _ := b.DB.IsBotBanned(m.Author.ID, m.GuildID)
+	if banned {
+		return
+	}
+
+	// Handle DMs separately (allow DM commands)
+	if m.GuildID == "" {
+		b.handleDM(s, m)
 		return
 	}
 
 	if Global.Debug.PrintRawEvents {
 		log.Printf("[RAW EVENT] Message: Author=%s, Guild=%s, Content=%s",
 			m.Author.Username, m.GuildID, m.Content)
+	}
+
+	// Check if the bot is mentioned - trigger delay command
+	for _, mention := range m.Mentions {
+		if mention.ID == s.State.User.ID {
+			// Bot was mentioned, run delay command
+			ctx := &commands.Context{
+				Session: s,
+				Message: m,
+				Bot:     b,
+			}
+			b.Commands.Execute(ctx, "delay")
+			return
+		}
 	}
 
 	// Check if message starts with prefix

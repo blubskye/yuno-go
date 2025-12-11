@@ -127,12 +127,20 @@ func main() {
 	log.Println("└────────────────────────────────────────┘")
 	log.Println("   Press Ctrl+C to shut down gracefully ♡")
 
-	// 6. Graceful shutdown handling
+	// 6. Start terminal interface in goroutine
+	terminal := bot.NewTerminal(yuno)
+	go terminal.Start()
+
+	// Start DM cleanup in background
+	go yuno.StartDMCleanup()
+
+	// 7. Graceful shutdown handling
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
-	// 7. Farewell
+	// 8. Farewell
+	terminal.Stop()
 	log.Println("→ Shutting down... Ara ara~")
 	time.Sleep(500 * time.Millisecond)
 }
