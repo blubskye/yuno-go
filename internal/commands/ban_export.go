@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -186,9 +187,9 @@ func (c *ImportBansCommand) Execute(ctx *Context) error {
 		Title: "✅ Bans Imported",
 		Color: 0x00FF00,
 		Fields: []*discordgo.MessageEmbedField{
-			{Name: "Imported", Value: fmt.Sprintf("%d", imported), Inline: true},
-			{Name: "Skipped", Value: fmt.Sprintf("%d", skipped), Inline: true},
-			{Name: "Errors", Value: fmt.Sprintf("%d", errors), Inline: true},
+			{Name: "Imported", Value: strconv.Itoa(imported), Inline: true},
+			{Name: "Skipped", Value: strconv.Itoa(skipped), Inline: true},
+			{Name: "Errors", Value: strconv.Itoa(errors), Inline: true},
 		},
 	}
 
@@ -255,10 +256,10 @@ func (c *ScanBansCommand) Execute(ctx *Context) error {
 		Title: "Ban List Analysis",
 		Color: 0x3498DB,
 		Fields: []*discordgo.MessageEmbedField{
-			{Name: "Total Bans", Value: fmt.Sprintf("%d", len(bans)), Inline: true},
-			{Name: "With Reason", Value: fmt.Sprintf("%d", withReason), Inline: true},
-			{Name: "Without Reason", Value: fmt.Sprintf("%d", withoutReason), Inline: true},
-			{Name: "Deleted Accounts", Value: fmt.Sprintf("%d", deletedUsers), Inline: true},
+			{Name: "Total Bans", Value: strconv.Itoa(len(bans)), Inline: true},
+			{Name: "With Reason", Value: strconv.Itoa(withReason), Inline: true},
+			{Name: "Without Reason", Value: strconv.Itoa(withoutReason), Inline: true},
+			{Name: "Deleted Accounts", Value: strconv.Itoa(deletedUsers), Inline: true},
 		},
 		Footer: &discordgo.MessageEmbedFooter{
 			Text: fmt.Sprintf("Use %sexportbans to export the full list", ctx.GetPrefix()),

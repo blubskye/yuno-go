@@ -156,8 +156,8 @@ func (c *MassAddXPCommand) Execute(ctx *Context) error {
 		Fields: []*discordgo.MessageEmbedField{
 			{Name: "Role", Value: role.Mention(), Inline: true},
 			{Name: "XP Added", Value: fmt.Sprintf("+%d", amount), Inline: true},
-			{Name: "Members Updated", Value: fmt.Sprintf("%d", updated), Inline: true},
-			{Name: "Level Ups", Value: fmt.Sprintf("%d", levelUps), Inline: true},
+			{Name: "Members Updated", Value: strconv.Itoa(updated), Inline: true},
+			{Name: "Level Ups", Value: strconv.Itoa(levelUps), Inline: true},
 		},
 	}
 
@@ -270,9 +270,9 @@ func (c *MassSetXPCommand) Execute(ctx *Context) error {
 		Color: 0x00FF00,
 		Fields: []*discordgo.MessageEmbedField{
 			{Name: "Role", Value: role.Mention(), Inline: true},
-			{Name: "XP Set To", Value: fmt.Sprintf("%d", amount), Inline: true},
-			{Name: "Level", Value: fmt.Sprintf("%d", newLevel), Inline: true},
-			{Name: "Members Updated", Value: fmt.Sprintf("%d", updated), Inline: true},
+			{Name: "XP Set To", Value: strconv.FormatInt(amount, 10), Inline: true},
+			{Name: "Level", Value: strconv.Itoa(newLevel), Inline: true},
+			{Name: "Members Updated", Value: strconv.Itoa(updated), Inline: true},
 		},
 	}
 
@@ -393,7 +393,7 @@ func (c *MassLevelUpCommand) Execute(ctx *Context) error {
 		Fields: []*discordgo.MessageEmbedField{
 			{Name: "Role", Value: role.Mention(), Inline: true},
 			{Name: "Levels Added", Value: fmt.Sprintf("+%d", levels), Inline: true},
-			{Name: "Members Updated", Value: fmt.Sprintf("%d", updated), Inline: true},
+			{Name: "Members Updated", Value: strconv.Itoa(updated), Inline: true},
 		},
 	}
 

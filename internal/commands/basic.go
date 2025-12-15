@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -60,7 +61,7 @@ func (c *StatsCommand) Execute(ctx *Context) error {
 			},
 			{
 				Name:   "Goroutines",
-				Value:  fmt.Sprintf("%d", runtime.NumGoroutine()),
+				Value:  strconv.Itoa(runtime.NumGoroutine()),
 				Inline: true,
 			},
 			{
@@ -76,7 +77,7 @@ func (c *StatsCommand) Execute(ctx *Context) error {
 		guilds := len(ctx.Session.State.Guilds)
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 			Name:   "Guilds",
-			Value:  fmt.Sprintf("%d", guilds),
+			Value:  strconv.Itoa(guilds),
 			Inline: true,
 		})
 		

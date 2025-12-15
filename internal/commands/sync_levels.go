@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -130,9 +131,7 @@ func (c *SyncLevelsCommand) Execute(ctx *Context) error {
 		highestLevel := 0
 		for _, roleID := range member.Roles {
 			if level, exists := roleToLevel[roleID]; exists {
-				if level > highestLevel {
-					highestLevel = level
-				}
+				highestLevel = max(highestLevel, level)
 			}
 		}
 
@@ -225,7 +224,7 @@ func (c *SyncLevelsCommand) Execute(ctx *Context) error {
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "Total Members",
-				Value:  fmt.Sprintf("%d", len(members)),
+				Value:  strconv.Itoa(len(members)),
 				Inline: true,
 			},
 			{

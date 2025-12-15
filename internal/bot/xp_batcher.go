@@ -13,10 +13,16 @@ import (
 // XP BATCHER - Batches XP updates to reduce database transactions
 // ============================================================================
 
+// batcherKey is a composite key for the pending map to avoid string allocation
+type batcherKey struct {
+	guildID string
+	userID  string
+}
+
 // XPBatcher batches XP updates to reduce DB transactions
 type XPBatcher struct {
 	bot           *Bot
-	pending       map[string]*PendingXP // key: "guildID:userID"
+	pending       map[batcherKey]*PendingXP
 	mu            sync.Mutex
 	stopChan      chan struct{}
 	flushInterval time.Duration
@@ -36,7 +42,7 @@ type PendingXP struct {
 func NewXPBatcher(bot *Bot) *XPBatcher {
 	return &XPBatcher{
 		bot:           bot,
-		pending:       make(map[string]*PendingXP),
+		pending:       make(map[batcherKey]*PendingXP),
 		stopChan:      make(chan struct{}),
 		flushInterval: 10 * time.Second,
 		maxBatchSize:  200,
@@ -56,7 +62,7 @@ func (xb *XPBatcher) Stop() {
 
 // AddXP adds XP to the batch for a user
 func (xb *XPBatcher) AddXP(guildID, userID, channelID string, xp int) {
-	key := guildID + ":" + userID
+	key := batcherKey{guildID: guildID, userID: userID}
 
 	xb.mu.Lock()
 	if existing, ok := xb.pending[key]; ok {
@@ -106,13 +112,13 @@ func (xb *XPBatcher) flushLocked() {
 
 	// Copy and clear
 	toProcess := xb.pending
-	xb.pending = make(map[string]*PendingXP)
+	xb.pending = make(map[batcherKey]*PendingXP)
 
 	// Process in background
 	go xb.processBatch(toProcess)
 }
 
-func (xb *XPBatcher) processBatch(batch map[string]*PendingXP) {
+func (xb *XPBatcher) processBatch(batch map[batcherKey]*PendingXP) {
 	defer RecoverFromPanic("XPBatcher.processBatch")
 
 	tx, err := xb.bot.DB.Begin()

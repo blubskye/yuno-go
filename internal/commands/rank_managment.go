@@ -200,7 +200,7 @@ func (c *AddRankCommand) Execute(ctx *Context) error {
 			},
 			{
 				Name:   "Required Level",
-				Value:  fmt.Sprintf("%d", level),
+				Value:  strconv.Itoa(level),
 				Inline: true,
 			},
 		},
@@ -484,12 +484,12 @@ func (c *ApplyRanksCommand) Execute(ctx *Context) error {
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "Members Processed",
-				Value:  fmt.Sprintf("%d", processed),
+				Value:  strconv.Itoa(processed),
 				Inline: true,
 			},
 			{
 				Name:   "Roles Added",
-				Value:  fmt.Sprintf("%d", rolesAdded),
+				Value:  strconv.Itoa(rolesAdded),
 				Inline: true,
 			},
 			{

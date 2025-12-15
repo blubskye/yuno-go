@@ -72,17 +72,17 @@ func (c *XPCommand) Execute(ctx *Context) error {
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "Current level",
-				Value:  fmt.Sprintf("%d", level),
+				Value:  strconv.Itoa(level),
 				Inline: true,
 			},
 			{
 				Name:   "Current exp",
-				Value:  fmt.Sprintf("%d", xp),
+				Value:  strconv.Itoa(xp),
 				Inline: true,
 			},
 			{
 				Name:   fmt.Sprintf("Exp needed until next level (%d)", level+1),
-				Value:  fmt.Sprintf("%d", remaining),
+				Value:  strconv.Itoa(remaining),
 				Inline: false,
 			},
 		},
@@ -155,7 +155,7 @@ func (c *SetLevelCommand) Execute(ctx *Context) error {
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "Current level",
-				Value:  fmt.Sprintf("%d", level),
+				Value:  strconv.Itoa(level),
 				Inline: true,
 			},
 			{
@@ -165,7 +165,7 @@ func (c *SetLevelCommand) Execute(ctx *Context) error {
 			},
 			{
 				Name:   fmt.Sprintf("Exp needed until next level (%d)", level+1),
-				Value:  fmt.Sprintf("%d", neededXP),
+				Value:  strconv.Itoa(neededXP),
 				Inline: false,
 			},
 		},
